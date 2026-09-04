@@ -1,0 +1,286 @@
+<section class="panel is-active" id="panel1">
+  <div class="panel-head">
+    <h1>Personal Information</h1>
+    <p>Tell us a bit about yourself. Fields marked * are required.</p>
+  </div>
+
+  <div class="field">
+    <label for="profDept">Department *</label>
+    <select id="profDept" disabled></select>
+    <p class="lock-note">Set at registration. Contact the recruitment office to change it.</p>
+  </div>
+
+  <h2 class="section-title">Identity &amp; Family</h2>
+  <div class="grid-3">
+    <div class="field">
+      <label for="fullName">Full Name *</label>
+      <input type="text" id="fullName" placeholder="As per ID proof">
+      <div class="field-error" id="fullNameError"></div>
+    </div>
+    <div class="field">
+      <label for="dob">Date of Birth *</label>
+      <input type="date" id="dob">
+      <div class="field-error" id="dobError"></div>
+    </div>
+    <div class="field">
+      <label for="age">Age *</label>
+      <input type="number" id="age" min="18" max="70" placeholder="e.g. 29">
+      <div class="field-error" id="ageError"></div>
+    </div>
+    <div class="field">
+      <label for="fatherName">Father's Name *</label>
+      <input type="text" id="fatherName" placeholder="Full name">
+      <div class="field-error" id="fatherNameError"></div>
+    </div>
+    <div class="field">
+      <label for="motherName">Mother's Name *</label>
+      <input type="text" id="motherName" placeholder="Full name">
+      <div class="field-error" id="motherNameError"></div>
+    </div>
+    <div class="field">
+      <label for="gender">Gender *</label>
+      <select id="gender">
+        <option value="" disabled selected>Select</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="genderError"></div>
+    </div>
+  </div>
+  <div class="field" id="fld-genderOther" style="display:none;">
+    <label for="genderOther">Please specify gender *</label>
+    <input type="text" id="genderOther" placeholder="Type your gender">
+    <div class="field-error" id="genderOtherError"></div>
+  </div>
+
+  <div class="grid-3">
+    <div class="field">
+      <label for="bloodGroup">Blood Group *</label>
+      <select id="bloodGroup">
+        <option value="" disabled selected>Select</option>
+        <option>A+</option>
+        <option>A-</option>
+        <option>B+</option>
+        <option>B-</option>
+        <option>AB+</option>
+        <option>AB-</option>
+        <option>O+</option>
+        <option>O-</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="bloodGroupError"></div>
+    </div>
+    <div class="field">
+      <label for="maritalStatus">Marital Status *</label>
+      <select id="maritalStatus">
+        <option value="" disabled selected>Select</option>
+        <option>Single</option>
+        <option>Married</option>
+        <option>Widowed</option>
+        <option>Divorced</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="maritalStatusError"></div>
+    </div>
+    <div class="field" id="fld-spouseName" style="display:none;">
+      <label for="spouseName">Spouse's Name *</label>
+      <input type="text" id="spouseName" placeholder="Full name">
+      <div class="field-error" id="spouseNameError"></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="field" id="fld-bloodGroupOther" style="display:none;">
+      <label for="bloodGroupOther">Please specify blood group *</label>
+      <input type="text" id="bloodGroupOther" placeholder="Type blood group">
+      <div class="field-error" id="bloodGroupOtherError"></div>
+    </div>
+    <div class="field" id="fld-maritalStatusOther" style="display:none;">
+      <label for="maritalStatusOther">Please specify marital status *</label>
+      <input type="text" id="maritalStatusOther" placeholder="Type marital status">
+      <div class="field-error" id="maritalStatusOtherError"></div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Profile Photo</h2>
+  <div class="field file-field" id="fld-photoDoc">
+    <label for="photoDoc">Passport Size Photo *</label>
+    <input type="file" id="photoDoc" accept=".jpg,.jpeg,.png" class="file-input">
+    <label for="photoDoc" class="file-btn">Choose photo <span class="file-name" id="photoDocName">No photo
+        selected</span></label>
+    <div class="field-error" id="photoDocError"></div>
+  </div>
+
+  <h2 class="section-title">Application &amp; Staff Details</h2>
+  <div class="grid-2">
+    <div class="field">
+      <label for="appliedDate">Applied Date *</label>
+      <input type="date" id="appliedDate">
+      <div class="field-error" id="appliedDateError"></div>
+    </div>
+    <div class="field">
+      <label for="post">Post Applied For *</label>
+      <select id="post">
+        <option value="" disabled selected>Select post</option>
+        <option>Assistant Professor</option>
+        <option>Associate Professor</option>
+        <option>Professor</option>
+        <option>Technical Assistant</option>
+        <option>Non-Teaching Staff</option>
+        <option>Administration</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="postError"></div>
+    </div>
+  </div>
+  <div class="field" id="fld-postOther" style="display:none;">
+    <label for="postOther">Please specify post *</label>
+    <input type="text" id="postOther" placeholder="Type your post / designation">
+    <div class="field-error" id="postOtherError"></div>
+  </div>
+
+  <h2 class="section-title">Background &amp; Demographics</h2>
+  <div class="grid-3">
+    <div class="field">
+      <label for="nationality">Nationality *</label>
+      <input type="text" id="nationality" placeholder="e.g. Indian" value="Indian">
+      <div class="field-error" id="nationalityError"></div>
+    </div>
+    <div class="field">
+      <label for="religion">Religion *</label>
+      <select id="religion">
+        <option value="" disabled selected>Select religion</option>
+        <option>Hindu</option>
+        <option>Christian</option>
+        <option>Muslim</option>
+        <option>Sikh</option>
+        <option>Jain</option>
+        <option>Buddhist</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="religionError"></div>
+    </div>
+    <div class="field">
+      <label for="community">Community / Category *</label>
+      <select id="community">
+        <option value="" disabled selected>Select community</option>
+        <option>OC</option>
+        <option>BC</option>
+        <option>BCM</option>
+        <option>MBC</option>
+        <option>SC</option>
+        <option>SCA</option>
+        <option>ST</option>
+        <option>Other</option>
+      </select>
+      <div class="field-error" id="communityError"></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="field" id="fld-religionOther" style="display:none;">
+      <label for="religionOther">Please specify religion *</label>
+      <input type="text" id="religionOther" placeholder="Type your religion">
+      <div class="field-error" id="religionOtherError"></div>
+    </div>
+    <div class="field" id="fld-communityOther" style="display:none;">
+      <label for="communityOther">Please specify community *</label>
+      <input type="text" id="communityOther" placeholder="Type your community">
+      <div class="field-error" id="communityOtherError"></div>
+    </div>
+  </div>
+
+  <div class="field" style="max-width: 320px;">
+    <label for="caste">Caste *</label>
+    <input type="text" id="caste" placeholder="Enter your caste">
+    <div class="field-error" id="casteError"></div>
+  </div>
+
+  <h2 class="section-title">Contact Details</h2>
+  <div class="grid-3">
+    <div class="field">
+      <label for="email">Primary Email *</label>
+      <input type="email" id="email" placeholder="name@example.com">
+      <div class="field-error" id="emailError"></div>
+    </div>
+    <div class="field">
+      <label for="altEmail">Alternate Email</label>
+      <input type="email" id="altEmail" placeholder="alternate@example.com">
+      <div class="field-error" id="altEmailError"></div>
+    </div>
+    <div class="field">
+      <label for="phone">Mobile Number *</label>
+      <input type="tel" id="phone" placeholder="10-digit mobile number">
+      <div class="field-error" id="phoneError"></div>
+    </div>
+  </div>
+  <div class="field" style="max-width: 320px;">
+    <label for="whatsapp">WhatsApp Number <span class="hint">(if different)</span></label>
+    <input type="tel" id="whatsapp" placeholder="10-digit number">
+    <div class="field-error" id="whatsappError"></div>
+  </div>
+
+  <h2 class="section-title">Emergency Contact</h2>
+  <div class="grid-3">
+    <div class="field">
+      <label for="emergencyName">Contact Name *</label>
+      <input type="text" id="emergencyName" placeholder="Full name">
+      <div class="field-error" id="emergencyNameError"></div>
+    </div>
+    <div class="field">
+      <label for="emergencyRelation">Relationship *</label>
+      <input type="text" id="emergencyRelation" placeholder="e.g. Spouse, Parent, Sibling">
+      <div class="field-error" id="emergencyRelationError"></div>
+    </div>
+    <div class="field">
+      <label for="emergencyPhone">Contact Phone *</label>
+      <input type="tel" id="emergencyPhone" placeholder="10-digit mobile number">
+      <div class="field-error" id="emergencyPhoneError"></div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Government Identification</h2>
+  <div class="field" style="max-width: 320px;">
+    <label for="aadhaar">Aadhaar Number *</label>
+    <input type="text" id="aadhaar" inputmode="numeric" placeholder="12-digit number">
+    <div class="field-error" id="aadhaarError"></div>
+  </div>
+
+  <h2 class="section-title">Address</h2>
+  <div class="field">
+    <label for="permanentAddress">Permanent Address *</label>
+    <textarea id="permanentAddress" rows="2" placeholder="House / street / area, city"></textarea>
+    <div class="field-error" id="permanentAddressError"></div>
+  </div>
+  <div class="field">
+    <label for="communicationAddress">Communication Address *</label>
+    <textarea id="communicationAddress" rows="2" placeholder="House / street / area, city"></textarea>
+    <label class="checkbox-line" for="sameAsPermanent">
+      <input type="checkbox" id="sameAsPermanent">
+      <span>Same as permanent address</span>
+    </label>
+    <div class="field-error" id="communicationAddressError"></div>
+  </div>
+
+  <div class="grid-3">
+    <div class="field">
+      <label for="state">State *</label>
+      <select id="state"></select>
+      <div class="field-error" id="stateError"></div>
+    </div>
+    <div class="field">
+      <label for="district">District / City *</label>
+      <input type="text" id="district" placeholder="Enter city or district">
+      <div class="field-error" id="districtError"></div>
+    </div>
+    <div class="field">
+      <label for="pincode">Pincode *</label>
+      <input type="text" id="pincode" inputmode="numeric" placeholder="6-digit pincode">
+      <div class="field-error" id="pincodeError"></div>
+    </div>
+  </div>
+
+  <div class="panel-actions">
+    <span></span>
+    <button type="button" class="btn-primary" id="toStep2">Save &amp; Continue</button>
+  </div>
+</section>

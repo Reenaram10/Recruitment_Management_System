@@ -1,0 +1,610 @@
+<section class="panel" id="panel2">
+  <div class="panel-head">
+    <h1>Education &amp; Documents</h1>
+    <p>10th and 12th details are required. Mark "Not applicable" for qualifications you haven't completed. Certificates
+      and ID proof upload are optional.</p>
+  </div>
+
+  <!-- 10th -->
+  <fieldset class="edu-block" id="tenthBlock">
+    <legend>10th Standard *</legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="tenthPercentage">Percentage *</label>
+        <input type="number" id="tenthPercentage" min="0" max="100" step="0.01" placeholder="e.g. 85.4">
+        <div class="field-error" id="tenthPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="tenthYear">Year of Passing *</label>
+        <input type="number" id="tenthYear" min="1970" max="2026" placeholder="e.g. 2010">
+        <div class="field-error" id="tenthYearError"></div>
+      </div>
+      <div class="field">
+        <label for="tenthMedium">Medium of Study *</label>
+        <select id="tenthMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="tenthMediumError"></div>
+      </div>
+      <div class="field">
+        <label for="tenthAttempt">First Attempt *</label>
+        <select id="tenthAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="tenthAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="tenthClass">First Class *</label>
+        <select id="tenthClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="tenthClassError"></div>
+      </div>
+    </div>
+    <div class="field" id="fld-tenthMediumOther" style="display:none;">
+      <label for="tenthMediumOther">Please specify medium *</label>
+      <input type="text" id="tenthMediumOther" placeholder="Type medium">
+      <div class="field-error" id="tenthMediumOtherError"></div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field" style="grid-column: span 2;">
+        <label for="tenthInstitution">10th School / Institution Name *</label>
+        <input type="text" id="tenthInstitution"
+          placeholder="Type your 10th school name (e.g. Govt Higher Secondary School, Kovilpatti)..."
+          autocomplete="off">
+        <div class="field-error" id="tenthInstitutionError"></div>
+      </div>
+    </div>
+    <div class="field file-field" id="fld-tenthDoc">
+      <label for="tenthDoc">10th Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="tenthDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="tenthDoc" class="file-btn">Choose file <span class="file-name" id="tenthDocName">No file
+          selected</span></label>
+      <div class="field-error" id="tenthDocError"></div>
+    </div>
+  </fieldset>
+
+  <!-- 12th -->
+  <fieldset class="edu-block" id="twelfthBlock">
+    <legend>12th Standard *</legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="twelfthPercentage">Percentage *</label>
+        <input type="number" id="twelfthPercentage" min="0" max="100" step="0.01" placeholder="e.g. 82.1">
+        <div class="field-error" id="twelfthPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="twelfthYear">Year of Passing *</label>
+        <input type="number" id="twelfthYear" min="1970" max="2026" placeholder="e.g. 2012">
+        <div class="field-error" id="twelfthYearError"></div>
+      </div>
+      <div class="field">
+        <label for="twelfthMedium">Medium of Study *</label>
+        <select id="twelfthMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="twelfthMediumError"></div>
+      </div>
+      <div class="field">
+        <label for="twelfthAttempt">First Attempt *</label>
+        <select id="twelfthAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="twelfthAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="twelfthClass">First Class *</label>
+        <select id="twelfthClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="twelfthClassError"></div>
+      </div>
+    </div>
+    <div class="field" id="fld-twelfthMediumOther" style="display:none;">
+      <label for="twelfthMediumOther">Please specify medium *</label>
+      <input type="text" id="twelfthMediumOther" placeholder="Type medium">
+      <div class="field-error" id="twelfthMediumOtherError"></div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field" style="grid-column: span 2;">
+        <label for="twelfthInstitution">12th School / Institution Name *</label>
+        <input type="text" id="twelfthInstitution"
+          placeholder="Type your 12th school name (e.g. St. Xavier Higher Secondary, Palayamkottai)..."
+          autocomplete="off">
+        <div class="field-error" id="twelfthInstitutionError"></div>
+      </div>
+    </div>
+    <div class="field file-field" id="fld-twelfthDoc">
+      <label for="twelfthDoc">12th Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="twelfthDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="twelfthDoc" class="file-btn">Choose file <span class="file-name" id="twelfthDocName">No file
+          selected</span></label>
+      <div class="field-error" id="twelfthDocError"></div>
+    </div>
+  </fieldset>
+
+  <!-- UG -->
+  <fieldset class="edu-block" id="ugBlock">
+    <legend>
+      Undergraduate (UG)
+      <label class="checkbox-line inline-na"><input type="checkbox" id="ugNA"><span>Not applicable</span></label>
+    </legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="ugPercentage">Percentage</label>
+        <input type="number" id="ugPercentage" min="0" max="100" step="0.01" placeholder="e.g. 78.6">
+        <div class="field-error" id="ugPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="ugYear">Year of Passing</label>
+        <input type="number" id="ugYear" min="1970" max="2026" placeholder="e.g. 2016">
+        <div class="field-error" id="ugYearError"></div>
+      </div>
+      <div class="field">
+        <label for="ugMedium">Medium of Study</label>
+        <select id="ugMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="ugMediumError"></div>
+      </div>
+      <div class="field">
+        <label for="ugAttempt">First Attempt</label>
+        <select id="ugAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="ugAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="ugClass">First Class</label>
+        <select id="ugClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="ugClassError"></div>
+      </div>
+    </div>
+    <div class="field" id="fld-ugMediumOther" style="display:none;">
+      <label for="ugMediumOther">Please specify medium *</label>
+      <input type="text" id="ugMediumOther" placeholder="Type medium">
+      <div class="field-error" id="ugMediumOtherError"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label for="ugDegree">Degree</label>
+        <select id="ugDegree">
+          <option value="" disabled selected>Select degree</option>
+          <option>B.E.</option>
+          <option>B.Tech</option>
+          <option>B.Sc</option>
+          <option>B.A</option>
+          <option>B.Com</option>
+          <option>B.C.A</option>
+          <option>B.B.A</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="ugDegreeError"></div>
+      </div>
+      <div class="field" id="fld-ugSpecialization">
+        <label for="ugSpecialization">Specialization</label>
+        <select id="ugSpecialization" disabled>
+          <option value="" selected>Select degree first</option>
+        </select>
+        <div class="field-error" id="ugSpecializationError"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field" id="fld-ugDegreeOther" style="display:none;">
+        <label for="ugDegreeOther">Please specify degree *</label>
+        <input type="text" id="ugDegreeOther" placeholder="Type your degree">
+        <div class="field-error" id="ugDegreeOtherError"></div>
+      </div>
+      <div class="field" id="fld-ugSpecializationOther" style="display:none;">
+        <label for="ugSpecializationOther">Please specify specialization *</label>
+        <input type="text" id="ugSpecializationOther" placeholder="Type your specialization">
+        <div class="field-error" id="ugSpecializationOtherError"></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field" id="fld-ugGateScore" style="display:none;">
+        <label for="ugGateScore">GATE Score <span class="hint">(For B.E. / B.Tech)</span></label>
+        <input type="text" id="ugGateScore" placeholder="e.g. 540 or Qual. Marks">
+        <div class="field-error" id="ugGateScoreError"></div>
+      </div>
+      <div class="field" id="fld-ugNetSletScore" style="display:none;">
+        <label for="ugNetSletScore">NET / SLET Score <span class="hint">(For B.Sc / Arts & Science)</span></label>
+        <input type="text" id="ugNetSletScore" placeholder="e.g. Qualified (Score: 68%)">
+        <div class="field-error" id="ugNetSletScoreError"></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="ugInstitution">College / Institution Name</label>
+        <select id="ugInstitution">
+          <option value="" disabled selected>Loading institutions...</option>
+        </select>
+        <div class="field-error" id="ugInstitutionError"></div>
+      </div>
+      <div class="field" id="fld-ugInstitutionOther" style="display:none;">
+        <label for="ugInstitutionOther">Please specify college / institution name *</label>
+        <input type="text" id="ugInstitutionOther" placeholder="Type college / institution name">
+        <div class="field-error" id="ugInstitutionOtherError"></div>
+      </div>
+    </div>
+    <div class="field file-field" id="fld-ugDoc">
+      <label for="ugDoc">UG Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="ugDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="ugDoc" class="file-btn">Choose file <span class="file-name" id="ugDocName">No file
+          selected</span></label>
+      <div class="field-error" id="ugDocError"></div>
+    </div>
+  </fieldset>
+
+  <!-- PG -->
+  <fieldset class="edu-block" id="pgBlock">
+    <legend>
+      Postgraduate (PG)
+      <label class="checkbox-line inline-na"><input type="checkbox" id="pgNA"><span>Not applicable</span></label>
+    </legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="pgPercentage">Percentage</label>
+        <input type="number" id="pgPercentage" min="0" max="100" step="0.01" placeholder="e.g. 76.2">
+        <div class="field-error" id="pgPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="pgYear">Year of Passing</label>
+        <input type="number" id="pgYear" min="1970" max="2026" placeholder="e.g. 2018">
+        <div class="field-error" id="pgYearError"></div>
+      </div>
+      <div class="field">
+        <label for="pgMedium">Medium of Study</label>
+        <select id="pgMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="pgMediumError"></div>
+      </div>
+      <div class="field">
+        <label for="pgAttempt">First Attempt</label>
+        <select id="pgAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="pgAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="pgClass">First Class</label>
+        <select id="pgClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="pgClassError"></div>
+      </div>
+    </div>
+    <div class="field" id="fld-pgMediumOther" style="display:none;">
+      <label for="pgMediumOther">Please specify medium *</label>
+      <input type="text" id="pgMediumOther" placeholder="Type medium">
+      <div class="field-error" id="pgMediumOtherError"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label for="pgDegree">Degree</label>
+        <select id="pgDegree">
+          <option value="" disabled selected>Select degree</option>
+          <option>M.E.</option>
+          <option>M.Tech</option>
+          <option>M.Sc</option>
+          <option>M.A</option>
+          <option>M.Com</option>
+          <option>M.C.A</option>
+          <option>M.B.A</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="pgDegreeError"></div>
+      </div>
+      <div class="field" id="fld-pgSpecialization">
+        <label for="pgSpecialization">Specialization</label>
+        <select id="pgSpecialization" disabled>
+          <option value="" selected>Select degree first</option>
+        </select>
+        <div class="field-error" id="pgSpecializationError"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field" id="fld-pgDegreeOther" style="display:none;">
+        <label for="pgDegreeOther">Please specify degree *</label>
+        <input type="text" id="pgDegreeOther" placeholder="Type your degree">
+        <div class="field-error" id="pgDegreeOtherError"></div>
+      </div>
+      <div class="field" id="fld-pgSpecializationOther" style="display:none;">
+        <label for="pgSpecializationOther">Please specify specialization *</label>
+        <input type="text" id="pgSpecializationOther" placeholder="Type your specialization">
+        <div class="field-error" id="pgSpecializationOtherError"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field" id="fld-pgGateScore" style="display:none;">
+        <label for="pgGateScore">GATE Score <span class="hint">(For M.E. / M.Tech)</span></label>
+        <input type="text" id="pgGateScore" placeholder="e.g. 540 or Qual. Marks">
+        <div class="field-error" id="pgGateScoreError"></div>
+      </div>
+      <div class="field" id="fld-pgNetSletScore" style="display:none;">
+        <label for="pgNetSletScore">NET / SLET Score <span class="hint">(For M.Sc / Arts & Science)</span></label>
+        <input type="text" id="pgNetSletScore" placeholder="e.g. Qualified (Score: 68%)">
+        <div class="field-error" id="pgNetSletScoreError"></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="pgInstitution">College / Institution Name</label>
+        <select id="pgInstitution">
+          <option value="" disabled selected>Loading institutions...</option>
+        </select>
+        <div class="field-error" id="pgInstitutionError"></div>
+      </div>
+      <div class="field" id="fld-pgInstitutionOther" style="display:none;">
+        <label for="pgInstitutionOther">Please specify college / institution name *</label>
+        <input type="text" id="pgInstitutionOther" placeholder="Type college / institution name">
+        <div class="field-error" id="pgInstitutionOtherError"></div>
+      </div>
+    </div>
+    <div class="field file-field" id="fld-pgDoc">
+      <label for="pgDoc">PG Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="pgDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="pgDoc" class="file-btn">Choose file <span class="file-name" id="pgDocName">No file
+          selected</span></label>
+      <div class="field-error" id="pgDocError"></div>
+    </div>
+  </fieldset>
+
+  <!-- M.Phil -->
+  <fieldset class="edu-block" id="mphilBlock">
+    <legend>
+      M.Phil
+      <label class="checkbox-line inline-na"><input type="checkbox" id="mphilNA"><span>Not applicable</span></label>
+    </legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="mphilPercentage">Percentage / Grade</label>
+        <input type="number" id="mphilPercentage" min="0" max="100" step="0.01" placeholder="e.g. 74.0">
+        <div class="field-error" id="mphilPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="mphilYear">Year of Passing</label>
+        <input type="number" id="mphilYear" min="1970" max="2026" placeholder="e.g. 2020">
+        <div class="field-error" id="mphilYearError"></div>
+      </div>
+      <div class="field">
+        <label for="mphilMedium">Medium of Study</label>
+        <select id="mphilMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="mphilMediumError"></div>
+      </div>
+      <div class="field">
+        <label for="mphilAttempt">First Attempt</label>
+        <select id="mphilAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="mphilAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="mphilClass">First Class</label>
+        <select id="mphilClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="mphilClassError"></div>
+      </div>
+    </div>
+    <div class="field" id="fld-mphilMediumOther" style="display:none;">
+      <label for="mphilMediumOther">Please specify medium *</label>
+      <input type="text" id="mphilMediumOther" placeholder="Type medium">
+      <div class="field-error" id="mphilMediumOtherError"></div>
+    </div>
+    <div class="field">
+      <label for="mphilTopic">Research Topic (on what topic)</label>
+      <input type="text" id="mphilTopic" placeholder="e.g. Advanced Material Science & Engineering">
+      <div class="field-error" id="mphilTopicError"></div>
+    </div>
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="mphilInstitution">University / Institution Name</label>
+        <select id="mphilInstitution">
+          <option value="" disabled selected>Loading institutions...</option>
+        </select>
+        <div class="field-error" id="mphilInstitutionError"></div>
+      </div>
+      <div class="field" id="fld-mphilInstitutionOther" style="display:none;">
+        <label for="mphilInstitutionOther">Please specify university / institution name *</label>
+        <input type="text" id="mphilInstitutionOther" placeholder="Type university / institution name">
+        <div class="field-error" id="mphilInstitutionOtherError"></div>
+      </div>
+    </div>
+    <div class="field file-field" id="fld-mphilDoc">
+      <label for="mphilDoc">M.Phil Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="mphilDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="mphilDoc" class="file-btn">Choose file <span class="file-name" id="mphilDocName">No file
+          selected</span></label>
+      <div class="field-error" id="mphilDocError"></div>
+    </div>
+  </fieldset>
+
+  <!-- Ph.D -->
+  <fieldset class="edu-block" id="phdBlock">
+    <legend>
+      Ph.D
+      <label class="checkbox-line inline-na"><input type="checkbox" id="phdNA"><span>Not applicable</span></label>
+    </legend>
+    <div class="grid-5">
+      <div class="field">
+        <label for="phdPercentage">Percentage / Grade</label>
+        <input type="number" id="phdPercentage" min="0" max="100" step="0.01" placeholder="e.g. 78.0">
+        <div class="field-error" id="phdPercentageError"></div>
+      </div>
+      <div class="field">
+        <label for="phdStatus">Ph.D Status *</label>
+        <select id="phdStatus">
+          <option value="Completed" selected>Completed</option>
+          <option value="Pursuing">Pursuing</option>
+          <option value="Viva Completed">Viva Completed</option>
+          <option value="Submitted">Submitted</option>
+        </select>
+        <div class="field-error" id="phdStatusError"></div>
+      </div>
+      <div class="field">
+        <label for="phdYearRegistration">Year of Registration</label>
+        <input type="number" id="phdYearRegistration" min="1970" max="2026" placeholder="e.g. 2018">
+        <div class="field-error" id="phdYearRegistrationError"></div>
+      </div>
+      <div class="field">
+        <label for="phdYear">Year of Completion</label>
+        <input type="number" id="phdYear" min="1970" max="2026" placeholder="e.g. 2023">
+        <div class="field-error" id="phdYearError"></div>
+      </div>
+      <div class="field">
+        <label for="phdMedium">Medium of Study</label>
+        <select id="phdMedium">
+          <option value="" disabled selected>Select medium</option>
+          <option>English</option>
+          <option>Tamil</option>
+          <option>Other</option>
+        </select>
+        <div class="field-error" id="phdMediumError"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="phdAttempt">First Attempt</label>
+        <select id="phdAttempt">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="phdAttemptError"></div>
+      </div>
+      <div class="field">
+        <label for="phdClass">First Class</label>
+        <select id="phdClass">
+          <option value="" disabled selected>Select</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+        <div class="field-error" id="phdClassError"></div>
+      </div>
+    </div>
+
+    <div class="field" id="fld-phdMediumOther" style="display:none; margin-top:0.75rem;">
+      <label for="phdMediumOther">Please specify medium *</label>
+      <input type="text" id="phdMediumOther" placeholder="Type medium">
+      <div class="field-error" id="phdMediumOtherError"></div>
+    </div>
+
+    <div class="field" style="margin-top:0.75rem;">
+      <label for="phdTopic">Dissertation Title / Research Topic</label>
+      <input type="text" id="phdTopic" placeholder="e.g. Deep Learning Approaches for Fault Diagnosis in Microgrids">
+      <div class="field-error" id="phdTopicError"></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="phdGuideName">Guide Name</label>
+        <input type="text" id="phdGuideName" placeholder="e.g. Dr. A. Ramanathan">
+        <div class="field-error" id="phdGuideNameError"></div>
+      </div>
+      <div class="field">
+        <label for="phdGuideCollege">Guide College / Institution Name</label>
+        <input type="text" id="phdGuideCollege" placeholder="e.g. Anna University / IIT Madras">
+        <div class="field-error" id="phdGuideCollegeError"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="phdInstitution">University / Institution Name</label>
+        <select id="phdInstitution">
+          <option value="" disabled selected>Loading institutions...</option>
+        </select>
+        <div class="field-error" id="phdInstitutionError"></div>
+      </div>
+      <div class="field" id="fld-phdInstitutionOther" style="display:none;">
+        <label for="phdInstitutionOther">Please specify university / institution name *</label>
+        <input type="text" id="phdInstitutionOther" placeholder="Type university / institution name">
+        <div class="field-error" id="phdInstitutionOtherError"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="field">
+        <label for="phdPublicationsDuring">No. of Publications During Ph.D</label>
+        <input type="number" id="phdPublicationsDuring" min="0" placeholder="e.g. 4">
+        <div class="field-error" id="phdPublicationsDuringError"></div>
+      </div>
+      <div class="field">
+        <label for="phdPublicationsPost">No. of Publications Post Ph.D</label>
+        <input type="number" id="phdPublicationsPost" min="0" placeholder="e.g. 6">
+        <div class="field-error" id="phdPublicationsPostError"></div>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:0.75rem;">
+      <label for="phdPostExperience">Post Ph.D Experience (Details / Years)</label>
+      <input type="text" id="phdPostExperience" placeholder="e.g. 3.5 Years Post-Doctoral / Teaching Experience">
+      <div class="field-error" id="phdPostExperienceError"></div>
+    </div>
+
+    <div class="field file-field" id="fld-phdDoc" style="margin-top:0.75rem;">
+      <label for="phdDoc">Ph.D Certificate <span class="hint">(optional)</span></label>
+      <input type="file" id="phdDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+      <label for="phdDoc" class="file-btn">Choose file <span class="file-name" id="phdDocName">No file
+          selected</span></label>
+      <div class="field-error" id="phdDocError"></div>
+    </div>
+  </fieldset>
+
+  <h2 class="section-title">Other Documents</h2>
+  <div class="field file-field" id="fld-idProofDoc" style="max-width: 420px;">
+    <label for="idProofDoc">ID Proof (Aadhaar / Passport) <span class="hint">(optional)</span></label>
+    <input type="file" id="idProofDoc" accept=".pdf,.jpg,.jpeg,.png" class="file-input">
+    <label for="idProofDoc" class="file-btn">Choose file <span class="file-name" id="idProofDocName">No file
+        selected</span></label>
+    <div class="field-error" id="idProofDocError"></div>
+  </div>
+
+  <div class="panel-actions">
+    <button type="button" class="btn-ghost" id="backTo1">Back</button>
+    <button type="button" class="btn-primary" id="toStep3">Save &amp; Continue</button>
+  </div>
+</section>

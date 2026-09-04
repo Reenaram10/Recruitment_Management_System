@@ -1,0 +1,114 @@
+Table_Category,Table_Name,Attribute_Name,Data_Type,Key_Type,Null_Allowed,Default_Value,Description
+TRANSACTION TABLES,tbl_Users,int_User_Id,int,P.K,not null,Unique primary key identifier for candidate user account
+TRANSACTION TABLES,,txt_User_Email,varchar(255),U.K,not null,Candidate login email address
+TRANSACTION TABLES,,txt_User_Password,varchar(255),,not null,Hashed authentication password
+TRANSACTION TABLES,,txt_Department_Name,varchar(100),,not null,Department selected during registration
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Account registration timestamp
+
+TRANSACTION TABLES,tbl_Personal_Info,int_Personal_Id,int,P.K,not null,Unique primary key identifier for personal profile
+TRANSACTION TABLES,,txt_User_Email,varchar(255),F.K,not null,Foreign key referencing candidate login email
+TRANSACTION TABLES,,dte_Applied_Date,datetime,,Null,Application submission date
+TRANSACTION TABLES,,txt_Post_Applied,varchar(100),,Null,Post applied for (e.g. Assistant Professor)
+TRANSACTION TABLES,,txt_Post_Other,varchar(100),,Null,Custom post title if Other selected
+TRANSACTION TABLES,,txt_Full_Name,varchar(255),,Null,Full legal name of candidate
+TRANSACTION TABLES,,dte_Dob,datetime,,Null,Date of birth (YYYY-MM-DD)
+TRANSACTION TABLES,,int_Age,int,,Null,Calculated age in years
+TRANSACTION TABLES,,txt_Father_Name,varchar(255),,Null,Father's full name
+TRANSACTION TABLES,,txt_Mother_Name,varchar(255),,Null,Mother's full name
+TRANSACTION TABLES,,txt_Gender,varchar(50),,Null,Gender (Male/Female/Other)
+TRANSACTION TABLES,,txt_Gender_Other,varchar(100),,Null,Custom gender specification
+TRANSACTION TABLES,,txt_Blood_Group,varchar(20),,Null,Blood group (A+, B+, O+, etc.)
+TRANSACTION TABLES,,txt_Blood_Group_Other,varchar(50),,Null,Custom blood group
+TRANSACTION TABLES,,txt_Marital_Status,varchar(50),,Null,Marital status (Single/Married/Widowed/Divorced)
+TRANSACTION TABLES,,txt_Spouse_Name,varchar(255),,Null,Spouse name if married
+TRANSACTION TABLES,,txt_Marital_Status_Other,varchar(100),,Null,Custom marital status
+TRANSACTION TABLES,,txt_Photo_Path,varchar(255),,Null,Path to uploaded passport photo
+TRANSACTION TABLES,,txt_Nationality,varchar(100),,Null,Nationality (e.g. Indian)
+TRANSACTION TABLES,,txt_Religion,varchar(100),,Null,Religion (Hindu/Christian/Muslim/etc.)
+TRANSACTION TABLES,,txt_Religion_Other,varchar(100),,Null,Custom religion
+TRANSACTION TABLES,,txt_Community,varchar(100),,Null,Community category (OC/BC/BCM/MBC/SC/SCA/ST)
+TRANSACTION TABLES,,txt_Community_Other,varchar(100),,Null,Custom community category
+TRANSACTION TABLES,,txt_Caste,varchar(100),,Null,Caste name
+TRANSACTION TABLES,,txt_Contact_Email,varchar(255),,Null,Primary contact email address
+TRANSACTION TABLES,,txt_Alt_Email,varchar(255),,Null,Alternate email address
+TRANSACTION TABLES,,txt_Phone,varchar(20),,Null,Primary mobile phone number
+TRANSACTION TABLES,,txt_Whatsapp,varchar(20),,Null,WhatsApp contact number
+TRANSACTION TABLES,,txt_Emergency_Name,varchar(255),,Null,Emergency contact name
+TRANSACTION TABLES,,txt_Emergency_Relation,varchar(100),,Null,Relationship with emergency contact
+TRANSACTION TABLES,,txt_Emergency_Phone,varchar(20),,Null,Emergency contact phone number
+TRANSACTION TABLES,,txt_Aadhaar_No,varchar(20),,Null,12-digit Aadhaar number
+TRANSACTION TABLES,,txt_Permanent_Address,varchar(500),,Null,Full permanent address
+TRANSACTION TABLES,,txt_Communication_Address,varchar(500),,Null,Correspondence address
+TRANSACTION TABLES,,txt_State_Name,varchar(100),,Null,Resident state name
+TRANSACTION TABLES,,txt_District_Name,varchar(100),,Null,Resident district name
+TRANSACTION TABLES,,txt_Pincode,varchar(10),,Null,Postal pincode
+TRANSACTION TABLES,,txt_Tenth_Doc_Path,varchar(255),,Null,Path to 10th SSLC Marksheet document
+TRANSACTION TABLES,,txt_Twelfth_Doc_Path,varchar(255),,Null,Path to 12th HSC Marksheet document
+TRANSACTION TABLES,,txt_Ug_Doc_Path,varchar(255),,Null,Path to UG Degree certificate document
+TRANSACTION TABLES,,txt_Pg_Doc_Path,varchar(255),,Null,Path to PG Degree certificate document
+TRANSACTION TABLES,,txt_Mphil_Doc_Path,varchar(255),,Null,Path to M.Phil certificate document
+TRANSACTION TABLES,,txt_Phd_Doc_Path,varchar(255),,Null,Path to Ph.D degree certificate document
+TRANSACTION TABLES,,txt_Id_Proof_Doc_Path,varchar(255),,Null,Path to Government ID proof document
+TRANSACTION TABLES,,txt_Ug_Gate_Score,varchar(50),,Null,UG GATE score
+TRANSACTION TABLES,,txt_Ug_Net_Slet_Score,varchar(50),,Null,UG NET/SLET score
+TRANSACTION TABLES,,txt_Pg_Gate_Score,varchar(50),,Null,PG GATE score
+TRANSACTION TABLES,,txt_Pg_Net_Slet_Score,varchar(50),,Null,PG NET/SLET score
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Record creation timestamp
+TRANSACTION TABLES,,dte_Updated_Date,datetime,,Null,Record last update timestamp
+
+TRANSACTION TABLES,tbl_User_Education,int_Education_Id,int,P.K,not null,Unique primary key identifier for candidate qualification entry
+TRANSACTION TABLES,,txt_User_Email,varchar(255),F.K,not null,Candidate email reference
+TRANSACTION TABLES,,txt_Qual_Type,varchar(20),,not null,Qualification level (tenth/twelfth/ug/pg/mphil/phd)
+TRANSACTION TABLES,,txt_Is_Na,char(1),,not null,Not Applicable status flag (Y/N)
+TRANSACTION TABLES,,dec_Percentage,decimal(5,2),,Null,Marks percentage or CGPA
+TRANSACTION TABLES,,int_Year_Of_Passing,int,,Null,Year of passing/graduation
+TRANSACTION TABLES,,txt_Medium,varchar(50),,Null,Medium of instruction (English/Tamil/etc.)
+TRANSACTION TABLES,,txt_Medium_Other,varchar(100),,Null,Custom medium of instruction
+TRANSACTION TABLES,,txt_First_Attempt,varchar(50),,Null,First attempt status (Yes/No)
+TRANSACTION TABLES,,txt_First_Class,varchar(50),,Null,First class/Distinction status (Yes/No)
+TRANSACTION TABLES,,txt_Degree,varchar(100),,Null,Degree title (B.E., B.Tech, M.E., M.Sc., etc.)
+TRANSACTION TABLES,,txt_Degree_Other,varchar(100),,Null,Custom degree title
+TRANSACTION TABLES,,txt_Specialization,varchar(150),,Null,Branch / Stream specialization
+TRANSACTION TABLES,,txt_Specialization_Other,varchar(150),,Null,Custom specialization branch
+TRANSACTION TABLES,,txt_Topic,varchar(255),,Null,M.Phil dissertation / research topic
+TRANSACTION TABLES,,txt_Institution_Name,varchar(255),,Null,School / College / University name
+TRANSACTION TABLES,,txt_Institution_Other,varchar(255),,Null,Custom institution name
+TRANSACTION TABLES,,txt_Cert_Path,varchar(255),,Null,Path to qualification certificate file
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Record creation timestamp
+
+TRANSACTION TABLES,tbl_User_Experience,int_Experience_Id,int,P.K,not null,Unique primary key identifier for work experience entry
+TRANSACTION TABLES,,txt_User_Email,varchar(255),F.K,not null,Candidate email reference
+TRANSACTION TABLES,,txt_Is_Fresher,char(1),,not null,Fresher status flag (Y/N)
+TRANSACTION TABLES,,txt_Exp_Type,varchar(50),,Null,Experience category (Teaching/Industry/Research)
+TRANSACTION TABLES,,txt_Org_Name,varchar(255),,Null,Organization / College / Company name
+TRANSACTION TABLES,,dte_From_Date,datetime,,Null,Employment start date
+TRANSACTION TABLES,,dte_To_Date,datetime,,Null,Employment end date (NULL if currently working)
+TRANSACTION TABLES,,txt_Total_Duration,varchar(50),,Null,Calculated experience duration (e.g. 2 Yrs 6 Months)
+TRANSACTION TABLES,,txt_Designation,varchar(100),,Null,Job designation / Role held
+TRANSACTION TABLES,,dec_Salary,decimal(10,2),,Null,Last drawn monthly salary in INR
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Record creation timestamp
+
+TRANSACTION TABLES,tbl_User_Certifications,int_Certification_Id,int,P.K,not null,Unique primary key identifier for certification record
+TRANSACTION TABLES,,txt_User_Email,varchar(255),F.K,not null,Candidate email reference
+TRANSACTION TABLES,,txt_Title,varchar(255),,not null,Certification title / Course name
+TRANSACTION TABLES,,txt_Score,varchar(50),,Null,Exam score / Grade obtained
+TRANSACTION TABLES,,txt_Category,varchar(100),,Null,Course category (NPTEL, SWAYAM, Coursera, etc.)
+TRANSACTION TABLES,,txt_Organization,varchar(255),,Null,Issuing organization or institution
+TRANSACTION TABLES,,int_Year,int,,Null,Year of completion
+TRANSACTION TABLES,,txt_Cert_Doc,varchar(255),,Null,Path to uploaded certificate file
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Record creation timestamp
+
+TRANSACTION TABLES,tbl_User_Phd_Details,int_Phd_Id,int,P.K,not null,Unique primary key identifier for Ph.D details record
+TRANSACTION TABLES,,txt_User_Email,varchar(255),F.K,not null,Candidate email reference
+TRANSACTION TABLES,,txt_University,varchar(255),,Null,University where Ph.D was registered/awarded
+TRANSACTION TABLES,,txt_Thesis_Title,varchar(500),,Null,Ph.D Thesis title
+TRANSACTION TABLES,,txt_Guide_Name,varchar(255),,Null,Research Guide / Supervisor name
+TRANSACTION TABLES,,txt_Guide_College,varchar(255),,Null,Guide institution / organization name
+TRANSACTION TABLES,,txt_Status,varchar(50),,Null,Ph.D status (Completed/Pursuing/Viva Completed/Submitted)
+TRANSACTION TABLES,,int_Year_Of_Registration,int,,Null,Ph.D registration year
+TRANSACTION TABLES,,int_Year_Of_Completion,int,,Null,Ph.D completion / award year
+TRANSACTION TABLES,,int_Publications_During_Phd,int,,Null,Number of publications during Ph.D
+TRANSACTION TABLES,,int_Publications_Post_Phd,int,,Null,Number of publications post Ph.D
+TRANSACTION TABLES,,txt_Post_Phd_Experience,varchar(1000),,Null,Summary of post-Ph.D teaching & research experience
+TRANSACTION TABLES,,dte_Created_Date,datetime,,not null,Record creation timestamp
+TRANSACTION TABLES,,dte_Updated_Date,datetime,,Null,Record last update timestamp

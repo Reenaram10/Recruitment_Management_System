@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard · NEC Recruitment Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+    <header class="top-nav">
+        <div class="wrap nav-content">
+            <div class="brand">
+                <div class="logo-box">NEC</div>
+                <div>
+                    <div class="brand-title">Recruitment Office Admin</div>
+                    <div class="brand-sub">National Engineering College</div>
+                </div>
+            </div>
+            <div class="nav-links">
+                <button type="button" class="nav-btn secondary" id="btnLogoutAdmin"
+                    style="display:none; cursor:pointer;">Logout Admin</button>
+                <a href="index.html" class="nav-btn secondary">Staff Portal Home</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap admin-wrap" id="adminMainContent" style="display: none;">
+
+        <div class="admin-header">
+            <div>
+                <h1 class="page-title">Admin Dashboard</h1>
+                <p class="page-desc">Review submitted staff applications and filter by department or educational
+                    institution.</p>
+            </div>
+            <div class="stats-pills">
+                <div class="stat-pill">
+                    <span class="stat-num" id="statApps">0</span>
+                    <span class="stat-label">Total Applications</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num" id="statDepts">0</span>
+                    <span class="stat-label">Active Departments</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-num" id="statInsts">0</span>
+                    <span class="stat-label">Institutions</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABS -->
+        <nav class="admin-tabs" role="tablist"
+            style="display: flex; gap: 0.5rem; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem;">
+            <button type="button" class="tab-btn is-active" id="tabApps" role="tab" aria-selected="true">
+                📋 Staff Applications
+            </button>
+            <button type="button" class="tab-btn" id="tabDropdowns" role="tab" aria-selected="false">
+                ⚙️ Dropdown Management
+            </button>
+        </nav>
+
+        <div class="banner" id="banner"></div>
+
+        <!-- STAFF APPLICATIONS VIEWER -->
+        <section class="admin-panel is-active" id="panelApplications">
+            <div class="panel-toolbar">
+                <div class="search-wrap">
+                    <input type="text" id="appSearch"
+                        placeholder="Search by name, email, post, department or institution...">
+                </div>
+                <div class="filter-group">
+                    <label for="appDeptFilter">Department:</label>
+                    <select id="appDeptFilter">
+                        <option value="all">All Departments</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="appInstFilter">Institution:</label>
+                    <select id="appInstFilter">
+                        <option value="all">All Institutions</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Applicant</th>
+                            <th>Department</th>
+                            <th>Post Applied</th>
+                            <th>Mobile</th>
+                            <th>Registration Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="appTableBody">
+                        <!-- Dynamically populated rows -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- DROPDOWN MANAGEMENT VIEWER -->
+        <section class="admin-panel" id="panelDropdowns" style="display: none;">
+            <div class="panel-toolbar"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">System Dropdown Options</h3>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #64748b;">Enable, disable, or add new
+                        options for recruitment form fields.</p>
+                </div>
+                <button type="button" id="btnOpenAddOption"
+                    style="padding: 0.65rem 1.2rem; background: #0f172a; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                    <span>+ Add New Option</span>
+                </button>
+            </div>
+
+            <div class="dropdown-cards-grid" id="dropdownCardsGrid">
+                <!-- Dynamically populated categories -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: ADD DROPDOWN OPTION -->
+    <div class="modal-backdrop" id="optModalBackdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Add New Dropdown Option</h2>
+                <button type="button" class="modal-close" id="closeOptModal">&times;</button>
+            </div>
+            <form id="addOptForm" class="is-active" style="padding: 1.5rem;" novalidate>
+                <div class="field" style="margin-bottom: 1rem;">
+                    <label for="optCategory">Dropdown Category</label>
+                    <select id="optCategory" required
+                        style="width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        <option value="department">Departments</option>
+                        <option value="post">Posts</option>
+                        <option value="phd_status">Ph.D Statuses</option>
+                    </select>
+                </div>
+                <div class="field" style="margin-bottom: 1rem;">
+                    <label for="optLabel">Option Label (Display Name)</label>
+                    <input type="text" id="optLabel" placeholder="e.g. Artificial Intelligence" required
+                        style="width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                </div>
+                <div class="field" style="margin-bottom: 1.5rem;">
+                    <label for="optValue">Option Code / Value (Optional)</label>
+                    <input type="text" id="optValue" placeholder="e.g. AI (auto-generated if empty)"
+                        style="width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                </div>
+                <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                    <button type="button" class="btn-secondary" id="cancelOptModal"
+                        style="padding: 0.6rem 1rem; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="submit-btn"
+                        style="padding: 0.6rem 1.2rem; background: #0f172a; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; width: auto;">Save
+                        Option</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: DEDICATED ADMIN LOGIN GATE -->
+    <div class="modal-backdrop" id="adminAuthModal"
+        style="display: none; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px);">
+        <div class="modal-card" style="max-width: 420px; border-top: 4px solid #0284c7;">
+            <div class="modal-header">
+                <h2>Admin Access Required</h2>
+            </div>
+            <form id="adminLoginForm" class="is-active" style="padding: 1.5rem 0 0.5rem 0;">
+                <div class="banner" id="adminAuthBanner"></div>
+                <div class="field" style="margin-bottom: 1rem;">
+                    <label for="adminUsername">Admin Username</label>
+                    <input type="text" id="adminUsername" placeholder="e.g. admin" value="admin" required
+                        style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                </div>
+                <div class="field" style="margin-bottom: 1.5rem;">
+                    <label for="adminPassword">Admin Password</label>
+                    <input type="password" id="adminPassword" placeholder="Enter admin password" required
+                        style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+                </div>
+                <button type="submit" class="submit-btn" style="width: 100%;">Sign in as Admin</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: APPLICATION DETAIL VIEW -->
+    <div class="modal-backdrop" id="appModalBackdrop" style="display: none;">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h2>Candidate Application Details</h2>
+                <button type="button" class="modal-close" id="closeAppModal">&times;</button>
+            </div>
+            <div class="modal-body" id="appModalContent">
+                <!-- Dynamically populated candidate profile -->
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>
