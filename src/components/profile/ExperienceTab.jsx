@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Banner } from '../Banner';
 import { Briefcase, ArrowRight, ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
@@ -9,13 +9,23 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
     const [loading, setLoading] = useState(false);
     const [isFresher, setIsFresher] = useState(false);
     const [activeOtherKey, setActiveOtherKey] = useState(null);
+    const hasLoadedRef = useRef(false);
+    const isDirtyRef = useRef(false);
 
     const [entries, setEntries] = useState([
         { type: 'Teaching', org: '', from: '', to: '', total: '', designation: '', salary: '' },
     ]);
 
+    const loadedEmailRef = useRef('');
+
     useEffect(() => {
-        if (profileData?.experience) {
+        if (user?.email && loadedEmailRef.current !== user.email) {
+            loadedEmailRef.current = user.email;
+            hasLoadedRef.current = false;
+            isDirtyRef.current = false;
+        }
+
+        if (profileData?.experience && !hasLoadedRef.current && !isDirtyRef.current) {
             const expList = profileData.experience;
             if (expList.length > 0 && expList[0].is_fresher === 1) {
                 setIsFresher(true);
@@ -34,8 +44,9 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
                     }))
                 );
             }
+            hasLoadedRef.current = true;
         }
-    }, [profileData]);
+    }, [profileData, user]);
 
     const calculateDuration = (fromStr, toStr) => {
         if (!fromStr) return '';
@@ -68,6 +79,7 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
     };
 
     const handleEntryChange = (index, field, value) => {
+        isDirtyRef.current = true;
         setEntries((prev) => {
             const copy = [...prev];
             copy[index][field] = value;
@@ -86,6 +98,7 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
     };
 
     const addEntry = () => {
+        isDirtyRef.current = true;
         setEntries((prev) => [
             ...prev,
             { type: 'Teaching', org: '', from: '', to: '', total: '', designation: '', salary: '' },
@@ -93,11 +106,12 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
     };
 
     const removeEntry = (index) => {
+        isDirtyRef.current = true;
         setEntries((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         setBanner({ type: '', message: '' });
         setLoading(true);
 
@@ -114,13 +128,18 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
 
             const result = await res.json();
             if (result.success) {
+                isDirtyRef.current = false;
+                hasLoadedRef.current = true;
                 setBanner({ type: 'success', message: 'Work experience saved successfully!' });
                 if (onSaveSuccess) onSaveSuccess();
+                return true;
             } else {
                 setBanner({ type: 'error', message: result.message || 'Failed to save experience.' });
+                return false;
             }
         } catch (err) {
             setBanner({ type: 'error', message: 'Server connection error during save.' });
+            return false;
         } finally {
             setLoading(false);
         }
@@ -247,8 +266,9 @@ export const ExperienceTab = ({ profileData, onSaveSuccess, onNext, onPrev }) =>
                         </button>
                         <button
                             type="button"
-                            onClick={() => {
-                                handleSubmit({ preventDefault: () => { } }).then(() => onNext());
+                            onClick={async (e) => {
+                                const ok = await handleSubmit(e);
+                                if (ok && onNext) onNext();
                             }}
                             className="nav-btn primary"
                             style={{ background: '#2563eb', padding: '0.75rem 1.5rem', borderRadius: '10px' }}

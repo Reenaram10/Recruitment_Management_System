@@ -1,20 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Banner } from '../Banner';
 import { Award, ArrowRight, ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+
+const generateYearOptions = (startYear = 1960, endYear = new Date().getFullYear() + 2) => {
+    const years = [];
+    for (let y = endYear; y >= startYear; y--) {
+        years.push(y);
+    }
+    return years;
+};
 
 export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => {
     const { user } = useAuth();
     const [banner, setBanner] = useState({ type: '', message: '' });
     const [loading, setLoading] = useState(false);
     const [activeOtherKey, setActiveOtherKey] = useState(null);
+    const hasLoadedRef = useRef(false);
+    const isDirtyRef = useRef(false);
 
     const [entries, setEntries] = useState([
         { title: '', score: '', category: 'NPTEL / SWAYAM', organization: 'IIT Madras / NPTEL', year: '', file: null },
     ]);
 
+    const loadedEmailRef = useRef('');
+
     useEffect(() => {
-        if (profileData?.certifications && profileData.certifications.length > 0) {
+        if (user?.email && loadedEmailRef.current !== user.email) {
+            loadedEmailRef.current = user.email;
+            hasLoadedRef.current = false;
+            isDirtyRef.current = false;
+        }
+
+        if (profileData?.certifications && profileData.certifications.length > 0 && !hasLoadedRef.current && !isDirtyRef.current) {
             setEntries(
                 profileData.certifications.map((c) => ({
                     title: c.title || '',
@@ -26,10 +44,12 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
                     file: null,
                 }))
             );
+            hasLoadedRef.current = true;
         }
-    }, [profileData]);
+    }, [profileData, user]);
 
     const handleEntryChange = (index, field, value) => {
+        isDirtyRef.current = true;
         setEntries((prev) => {
             const copy = [...prev];
             copy[index][field] = value;
@@ -41,6 +61,7 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
     };
 
     const handleFileChange = (index, file) => {
+        isDirtyRef.current = true;
         setEntries((prev) => {
             const copy = [...prev];
             copy[index].file = file;
@@ -49,6 +70,7 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
     };
 
     const addEntry = () => {
+        isDirtyRef.current = true;
         setEntries((prev) => [
             ...prev,
             { title: '', score: '', category: 'NPTEL / SWAYAM', organization: 'NPTEL', year: '', file: null },
@@ -56,11 +78,12 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
     };
 
     const removeEntry = (index) => {
+        isDirtyRef.current = true;
         setEntries((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         setBanner({ type: '', message: '' });
         setLoading(true);
 
@@ -91,13 +114,18 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
 
             const result = await res.json();
             if (result.success) {
+                isDirtyRef.current = false;
+                hasLoadedRef.current = true;
                 setBanner({ type: 'success', message: 'Certifications saved successfully!' });
                 if (onSaveSuccess) onSaveSuccess();
+                return true;
             } else {
                 setBanner({ type: 'error', message: result.message || 'Failed to save certifications.' });
+                return false;
             }
         } catch (err) {
             setBanner({ type: 'error', message: 'Server connection error during saving certifications.' });
+            return false;
         } finally {
             setLoading(false);
         }
@@ -163,13 +191,18 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
                                 </div>
 
                                 <div className="field">
-                                    <label>Score / Grade / Percentage</label>
-                                    <input type="text" value={entry.score} onChange={(e) => handleEntryChange(idx, 'score', e.target.value)} placeholder="e.g. 88% (Elite + Gold)" />
+                                    <label>Score / Percentage / Grade (Optional)</label>
+                                    <input type="text" value={entry.score || ''} onChange={(e) => handleEntryChange(idx, 'score', e.target.value)} placeholder="e.g. 85% or Elite / Gold" />
                                 </div>
 
                                 <div className="field">
                                     <label>Year of Completion</label>
-                                    <input type="number" value={entry.year} onChange={(e) => handleEntryChange(idx, 'year', e.target.value)} placeholder="e.g. 2023" required />
+                                    <select value={entry.year} onChange={(e) => handleEntryChange(idx, 'year', e.target.value)} required>
+                                        <option value="" disabled>Select Year</option>
+                                        {generateYearOptions().map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className="field">
@@ -200,8 +233,9 @@ export const CertificationsTab = ({ profileData, onSaveSuccess, onNext, onPrev }
                         </button>
                         <button
                             type="button"
-                            onClick={() => {
-                                handleSubmit({ preventDefault: () => { } }).then(() => onNext());
+                            onClick={async (e) => {
+                                const ok = await handleSubmit(e);
+                                if (ok && onNext) onNext();
                             }}
                             className="nav-btn primary"
                             style={{ background: '#2563eb', padding: '0.75rem 1.5rem', borderRadius: '10px' }}

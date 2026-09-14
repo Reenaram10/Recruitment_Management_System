@@ -20,6 +20,9 @@ export const AuthProvider = ({ children }) => {
 
     const [currentStep, setCurrentStep] = useState(1);
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
+
     const [theme, setTheme] = useState(() => {
         return localStorage.getItem('nec_portal_theme') || 'light';
     });
@@ -74,6 +77,8 @@ export const AuthProvider = ({ children }) => {
                 setCurrentStep,
                 theme,
                 toggleTheme,
+                isSidebarOpen,
+                toggleSidebar,
                 loginUser,
                 loginAdmin,
                 logout,

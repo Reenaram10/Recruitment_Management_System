@@ -58,13 +58,13 @@ app.post('/api/register', async (req, res) => {
         }
 
         if (isDbConnected() && getPool()) {
-            const [existing] = await getPool().query('SELECT * FROM users WHERE email = ?', [email]);
+            const [existing] = await getPool().query('SELECT int_User_Id as id, txt_User_Email as email, txt_User_Password as password, txt_Department_Name as department, dte_Created_Date as created_at FROM tbl_Users WHERE txt_User_Email = ?', [email]);
             if (existing.length > 0) {
                 return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
             }
 
             await getPool().query(
-                'INSERT INTO users (email, password, department) VALUES (?, ?, ?)',
+                'INSERT INTO tbl_Users (txt_User_Email, txt_User_Password, txt_Department_Name, dte_Created_Date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
                 [email, password, department]
             );
         } else {
@@ -108,7 +108,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         if (isDbConnected() && getPool()) {
-            const [users] = await getPool().query('SELECT * FROM users WHERE email = ?', [email]);
+            const [users] = await getPool().query('SELECT int_User_Id as id, txt_User_Email as email, txt_User_Password as password, txt_Department_Name as department, dte_Created_Date as created_at FROM tbl_Users WHERE txt_User_Email = ?', [email]);
             if (users.length === 0) {
                 return res.status(404).json({ success: false, message: 'No account found with this email.' });
             }
@@ -364,10 +364,69 @@ app.post('/api/personal', upload.single('photoDoc'), async (req, res) => {
         ];
 
         if (isDbConnected() && getPool()) {
-            await getPool().query(sql, params);
-        } else {
-            console.log('Saved personal info to memory fallback for:', user_email);
+            try {
+                const dept = data.department || 'CSE';
+                await getPool().query(
+                    'INSERT IGNORE INTO tbl_Users (txt_User_Email, txt_User_Password, txt_Department_Name) VALUES (?, ?, ?)',
+                    [user_email, 'password123', dept]
+                );
+                await getPool().query(
+                    'INSERT IGNORE INTO users (email, password, department) VALUES (?, ?, ?)',
+                    [user_email, 'password123', dept]
+                );
+                await getPool().query(sql, params);
+            } catch (dbErr) {
+                console.error('MySQL personal save error, proceeding with memory sync:', dbErr.message);
+            }
         }
+
+        // Always sync memory array so memory profile queries return updated state
+        const idx = memoryPersonal.findIndex(p => p.user_email === user_email || p.email === user_email);
+        const record = {
+            user_email,
+            email: data.email || user_email,
+            applied_date: data.appliedDate || null,
+            post: data.post || null,
+            post_other: data.postOther || null,
+            full_name: data.fullName || null,
+            dob: data.dob || null,
+            age: data.age ? parseInt(data.age) : null,
+            father_name: data.fatherName || null,
+            mother_name: data.motherName || null,
+            gender: data.gender || null,
+            gender_other: data.genderOther || null,
+            blood_group: data.bloodGroup || null,
+            blood_group_other: data.bloodGroupOther || null,
+            marital_status: data.maritalStatus || null,
+            spouse_name: data.spouseName || null,
+            marital_status_other: data.maritalStatusOther || null,
+            photo_path: photo_path || (idx !== -1 ? memoryPersonal[idx].photo_path : null),
+            nationality: data.nationality || null,
+            religion: data.religion || null,
+            religion_other: data.religionOther || null,
+            community: data.community || null,
+            community_other: data.communityOther || null,
+            caste: data.caste || null,
+            alt_email: data.altEmail || null,
+            phone: data.phone || null,
+            whatsapp: data.whatsapp || null,
+            emergency_name: data.emergencyName || null,
+            emergency_relation: data.emergencyRelation || null,
+            emergency_phone: data.emergencyPhone || null,
+            aadhaar: data.aadhaar || null,
+            permanent_address: data.permanentAddress || null,
+            communication_address: data.communicationAddress || null,
+            state: data.state || null,
+            district: data.district || null,
+            pincode: data.pincode || null
+        };
+
+        if (idx !== -1) {
+            memoryPersonal[idx] = { ...memoryPersonal[idx], ...record };
+        } else {
+            memoryPersonal.push(record);
+        }
+
         res.json({ success: true, message: 'Personal details saved successfully.', photo_path });
     } catch (err) {
         console.error('Personal save error:', err);
@@ -401,10 +460,22 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
         const files = req.files || {};
         const qualTypes = ['tenth', 'twelfth', 'ug', 'pg', 'mphil', 'phd'];
 
+        const safeFloat = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const parsed = parseFloat(val);
+            return isNaN(parsed) ? null : parsed;
+        };
+
+        const safeInt = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const parsed = parseInt(val, 10);
+            return isNaN(parsed) ? null : parsed;
+        };
+
         for (const prefix of qualTypes) {
             const is_na = data[prefix + 'NA'] === 'true' || data[prefix + 'NA'] === true ? 1 : 0;
-            const percentage = data[prefix + 'Percentage'] ? parseFloat(data[prefix + 'Percentage']) : null;
-            const year_of_passing = data[prefix + 'Year'] ? parseInt(data[prefix + 'Year']) : null;
+            const percentage = safeFloat(data[prefix + 'Percentage']);
+            const year_of_passing = safeInt(data[prefix + 'Year']);
             const medium = data[prefix + 'Medium'] || null;
             const medium_other = data[prefix + 'MediumOther'] || null;
             const first_attempt = data[prefix + 'Attempt'] || null;
@@ -424,29 +495,63 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
                 cert_path = '/uploads/' + files[prefix + 'Doc'][0].filename;
             }
 
-            const sql = `
-        INSERT INTO user_education (
-          user_email, qual_type, is_na, percentage, year_of_passing, medium, medium_other,
-          first_attempt, first_class, degree, degree_other, specialization, specialization_other,
-          topic, institution_name, institution_other, cert_path, ug_gate_score, ug_net_slet_score
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          is_na = VALUES(is_na), percentage = VALUES(percentage), year_of_passing = VALUES(year_of_passing),
-          medium = VALUES(medium), medium_other = VALUES(medium_other), first_attempt = VALUES(first_attempt),
-          first_class = VALUES(first_class), degree = VALUES(degree), degree_other = VALUES(degree_other),
-          specialization = VALUES(specialization), specialization_other = VALUES(specialization_other),
-          topic = VALUES(topic), institution_name = VALUES(institution_name),
-          institution_other = VALUES(institution_other),
-          ug_gate_score = VALUES(ug_gate_score), ug_net_slet_score = VALUES(ug_net_slet_score),
-          cert_path = COALESCE(VALUES(cert_path), cert_path);
-      `;
-
             if (isDbConnected() && getPool()) {
-                await getPool().query(sql, [
-                    user_email, prefix, is_na, percentage, year_of_passing, medium, medium_other,
-                    first_attempt, first_class, degree, degree_other, specialization, specialization_other,
-                    topic, institution_name, institution_other, cert_path, gate_score, net_slet_score
-                ]);
+                try {
+                    const fullSql = `
+                        INSERT INTO user_education (
+                          user_email, qual_type, is_na, percentage, year_of_passing, medium, medium_other,
+                          first_attempt, first_class, degree, degree_other, specialization, specialization_other,
+                          topic, institution_name, institution_other, cert_path, ug_gate_score, ug_net_slet_score
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                          is_na = VALUES(is_na), percentage = VALUES(percentage), year_of_passing = VALUES(year_of_passing),
+                          medium = VALUES(medium), medium_other = VALUES(medium_other), first_attempt = VALUES(first_attempt),
+                          first_class = VALUES(first_class), degree = VALUES(degree), degree_other = VALUES(degree_other),
+                          specialization = VALUES(specialization), specialization_other = VALUES(specialization_other),
+                          topic = VALUES(topic), institution_name = VALUES(institution_name),
+                          institution_other = VALUES(institution_other),
+                          ug_gate_score = VALUES(ug_gate_score), ug_net_slet_score = VALUES(ug_net_slet_score),
+                          cert_path = COALESCE(VALUES(cert_path), cert_path);
+                    `;
+                    await getPool().query(fullSql, [
+                        user_email, prefix, is_na, percentage, year_of_passing, medium, medium_other,
+                        first_attempt, first_class, degree, degree_other, specialization, specialization_other,
+                        topic, institution_name, institution_other, cert_path, gate_score, net_slet_score
+                    ]);
+                } catch (dbErr) {
+                    console.error(`Education DB save error for ${prefix}:`, dbErr.message);
+                    throw dbErr;
+                }
+            } else {
+                // Memory fallback handling
+                const existingIdx = memoryEducation.findIndex(e => e.user_email === user_email && e.qual_type === prefix);
+                const eduRecord = {
+                    user_email,
+                    qual_type: prefix,
+                    is_na,
+                    percentage,
+                    year_of_passing,
+                    medium,
+                    medium_other,
+                    first_attempt,
+                    first_class,
+                    degree,
+                    degree_other,
+                    specialization,
+                    specialization_other,
+                    topic,
+                    institution_name,
+                    institution_other,
+                    cert_path: cert_path || (existingIdx >= 0 ? memoryEducation[existingIdx].cert_path : null),
+                    ug_gate_score: gate_score,
+                    ug_net_slet_score: net_slet_score
+                };
+
+                if (existingIdx >= 0) {
+                    memoryEducation[existingIdx] = eduRecord;
+                } else {
+                    memoryEducation.push(eduRecord);
+                }
             }
         }
 
@@ -458,13 +563,13 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
             const phd_guide_name = data.phdGuideName || null;
             const phd_guide_college = data.phdGuideCollege || null;
             const phd_status = data.phdStatus || 'Completed';
-            const phd_reg_year = data.phdYearRegistration ? parseInt(data.phdYearRegistration) : null;
-            const phd_comp_year = data.phdYear ? parseInt(data.phdYear) : null;
-            const phd_pub_during = data.phdPublicationsDuring ? parseInt(data.phdPublicationsDuring) : 0;
-            const phd_pub_post = data.phdPublicationsPost ? parseInt(data.phdPublicationsPost) : 0;
-            const phd_awards = data.phdAwards ? parseInt(data.phdAwards) : 0;
-            const phd_funded_projects = data.phdFundedProjects ? parseInt(data.phdFundedProjects) : 0;
-            const phd_funded_consultancy = data.phdFundedConsultancy ? parseInt(data.phdFundedConsultancy) : 0;
+            const phd_reg_year = safeInt(data.phdYearRegistration);
+            const phd_comp_year = safeInt(data.phdYear);
+            const phd_pub_during = safeInt(data.phdPublicationsDuring) || 0;
+            const phd_pub_post = safeInt(data.phdPublicationsPost) || 0;
+            const phd_awards = safeInt(data.phdAwards) || 0;
+            const phd_funded_projects = safeInt(data.phdFundedProjects) || 0;
+            const phd_funded_consultancy = safeInt(data.phdFundedConsultancy) || 0;
             const phd_exp = data.phdPostExperience || null;
 
             if (isDbConnected() && getPool()) {
@@ -492,6 +597,30 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
                     phd_reg_year, phd_comp_year, phd_pub_during, phd_pub_post, phd_awards,
                     phd_funded_projects, phd_funded_consultancy, phd_exp
                 ]);
+            } else {
+                const existingPhdIdx = memoryPhd.findIndex(p => p.user_email === user_email);
+                const phdRecord = {
+                    user_email,
+                    university: phd_university,
+                    title: phd_title,
+                    guide_name: phd_guide_name,
+                    guide_college: phd_guide_college,
+                    status: phd_status,
+                    year_of_registration: phd_reg_year,
+                    year_of_completion: phd_comp_year,
+                    no_of_publications_during_phd: phd_pub_during,
+                    no_of_publications_post_phd: phd_pub_post,
+                    no_of_awards: phd_awards,
+                    no_of_funded_projects: phd_funded_projects,
+                    no_of_funded_consultancy: phd_funded_consultancy,
+                    post_phd_experience: phd_exp
+                };
+
+                if (existingPhdIdx >= 0) {
+                    memoryPhd[existingPhdIdx] = phdRecord;
+                } else {
+                    memoryPhd.push(phdRecord);
+                }
             }
         }
 
@@ -630,18 +759,20 @@ app.get('/api/profile', async (req, res) => {
         };
 
         if (isDbConnected() && getPool()) {
-            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ?', [email]);
-            const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ?', [email]);
-            const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ?', [email]);
-            const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ?', [email]);
-            const [phdDetails] = await getPool().query('SELECT * FROM user_phd_details WHERE user_email = ?', [email]);
+            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ? OR email = ? ORDER BY id DESC LIMIT 1', [email, email]);
+            const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [phdDetails] = await getPool().query('SELECT * FROM user_phd_details WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
+
+            const personalRecord = personal[0] || null;
 
             return res.json({
                 success: true,
-                personal: personal[0] || null,
-                education: dedupe(education, e => `${e.qual_type}_${e.degree}_${e.year_of_passing}`),
-                experience: dedupe(experience, e => `${e.designation}_${e.org_name}_${e.from_date}`),
-                certifications: dedupe(certifications, c => `${c.title}_${c.organization}_${c.year}`),
+                personal: personalRecord,
+                education: dedupe(education, e => e.qual_type),
+                experience: dedupe(experience, e => e.id || `${e.designation}_${e.org_name}_${e.from_date}`),
+                certifications: dedupe(certifications, c => c.id || `${c.title}_${c.organization}_${c.year}`),
                 phd_details: phdDetails[0] || null
             });
         } else {
@@ -654,7 +785,7 @@ app.get('/api/profile', async (req, res) => {
             return res.json({
                 success: true,
                 personal,
-                education: dedupe(education, e => `${e.qual_type}_${e.degree}_${e.year_of_passing}`),
+                education: dedupe(education, e => e.qual_type),
                 experience: dedupe(experience, e => `${e.designation}_${e.org_name}_${e.from_date}`),
                 certifications: dedupe(certifications, c => `${c.title}_${c.organization}_${c.year}`),
                 phd_details: phdDetails
@@ -687,16 +818,16 @@ let memoryScoringParameters = [
     { id: 2, parameter_key: 'tenth_medium', parameter_name: '10th Medium', candidate_field: 'tenth.medium', value_type: 'category', max_weightage: 2, is_active: 1, ranges: [{ id: 103, range_type: 'category', category_value: 'English', assigned_score: 2 }, { id: 104, range_type: 'category', category_value: 'Tamil', assigned_score: 1 }] },
     { id: 3, parameter_key: 'twelfth_score', parameter_name: '12th Score (%)', candidate_field: 'twelfth.score', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 105, range_type: 'number', min_value: 80, max_value: 100, assigned_score: 5 }, { id: 106, range_type: 'number', min_value: 60, max_value: 79, assigned_score: 3 }] },
     { id: 4, parameter_key: 'twelfth_medium', parameter_name: '12th Medium', candidate_field: 'twelfth.medium', value_type: 'category', max_weightage: 2, is_active: 1, ranges: [{ id: 107, range_type: 'category', category_value: 'English', assigned_score: 2 }, { id: 108, range_type: 'category', category_value: 'Tamil', assigned_score: 1 }] },
-    { id: 5, parameter_key: 'ug_institute', parameter_name: 'UG Institute', candidate_field: 'ug.institute', value_type: 'category', max_weightage: 5, is_active: 1, ranges: [] },
+    { id: 5, parameter_key: 'ug_institute', parameter_name: 'UG Institute Rank Range', candidate_field: 'ug.institute', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 1081, range_type: 'number', min_value: 1, max_value: 50, assigned_score: 5 }, { id: 1082, range_type: 'number', min_value: 51, max_value: 100, assigned_score: 4 }, { id: 1083, range_type: 'number', min_value: 101, max_value: 150, assigned_score: 3 }] },
     { id: 6, parameter_key: 'ug_cgpa', parameter_name: 'UG CGPA (0 - 10 Scale)', candidate_field: 'ug.score', value_type: 'number', max_weightage: 15, is_active: 1, ranges: [{ id: 109, range_type: 'number', min_value: 8.5, max_value: 10.0, assigned_score: 15 }, { id: 110, range_type: 'number', min_value: 7.0, max_value: 8.4, assigned_score: 10 }, { id: 1110, range_type: 'number', min_value: 5.5, max_value: 6.9, assigned_score: 5 }] },
     { id: 7, parameter_key: 'ug_first_attempt', parameter_name: 'UG First Attempt', candidate_field: 'ug.first_attempt', value_type: 'category', max_weightage: 3, is_active: 1, ranges: [{ id: 111, range_type: 'category', category_value: 'Yes', assigned_score: 3 }] },
     { id: 8, parameter_key: 'ug_first_class', parameter_name: 'UG First Class', candidate_field: 'ug.first_class', value_type: 'category', max_weightage: 3, is_active: 1, ranges: [{ id: 112, range_type: 'category', category_value: 'Yes', assigned_score: 3 }] },
-    { id: 9, parameter_key: 'pg_institute', parameter_name: 'PG Institute', candidate_field: 'pg.institute', value_type: 'category', max_weightage: 5, is_active: 1, ranges: [] },
+    { id: 9, parameter_key: 'pg_institute', parameter_name: 'PG Institute Rank Range', candidate_field: 'pg.institute', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 1091, range_type: 'number', min_value: 1, max_value: 50, assigned_score: 5 }, { id: 1092, range_type: 'number', min_value: 51, max_value: 100, assigned_score: 4 }, { id: 1093, range_type: 'number', min_value: 101, max_value: 150, assigned_score: 3 }] },
     { id: 10, parameter_key: 'pg_cgpa', parameter_name: 'PG CGPA (0 - 10 Scale)', candidate_field: 'pg.score', value_type: 'number', max_weightage: 15, is_active: 1, ranges: [{ id: 113, range_type: 'number', min_value: 8.5, max_value: 10.0, assigned_score: 15 }, { id: 114, range_type: 'number', min_value: 7.0, max_value: 8.4, assigned_score: 10 }, { id: 1114, range_type: 'number', min_value: 5.5, max_value: 6.9, assigned_score: 5 }] },
     { id: 11, parameter_key: 'pg_first_attempt', parameter_name: 'PG First Attempt', candidate_field: 'pg.first_attempt', value_type: 'category', max_weightage: 3, is_active: 1, ranges: [{ id: 115, range_type: 'category', category_value: 'Yes', assigned_score: 3 }] },
     { id: 12, parameter_key: 'pg_first_class', parameter_name: 'PG First Class', candidate_field: 'pg.first_class', value_type: 'category', max_weightage: 3, is_active: 1, ranges: [{ id: 116, range_type: 'category', category_value: 'Yes', assigned_score: 3 }] },
     { id: 13, parameter_key: 'mphil_score', parameter_name: 'M.Phil Score', candidate_field: 'mphil.score', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
-    { id: 14, parameter_key: 'mphil_institute', parameter_name: 'M.Phil Institute', candidate_field: 'mphil.institute', value_type: 'category', max_weightage: 2, is_active: 0, ranges: [] },
+    { id: 14, parameter_key: 'mphil_institute', parameter_name: 'M.Phil Institute Rank Range', candidate_field: 'mphil.institute', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
     { id: 15, parameter_key: 'mphil_first_attempt', parameter_name: 'M.Phil First Attempt', candidate_field: 'mphil.first_attempt', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] },
     { id: 16, parameter_key: 'mphil_first_class', parameter_name: 'M.Phil First Class', candidate_field: 'mphil.first_class', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] },
     { id: 17, parameter_key: 'phd_completion', parameter_name: 'Ph.D. Completion', candidate_field: 'phd.completed', value_type: 'category', max_weightage: 10, is_active: 1, ranges: [{ id: 117, range_type: 'category', category_value: 'Yes', assigned_score: 10 }] },
@@ -710,6 +841,43 @@ let memoryScoringParameters = [
     { id: 25, parameter_key: 'funded_projects', parameter_name: 'Funded Projects', candidate_field: 'phd.funded_projects', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] },
     { id: 26, parameter_key: 'funded_consultancy', parameter_name: 'Funded Consultancy', candidate_field: 'phd.funded_consultancy', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] }
 ];
+async function resolveInstituteRankNumber(collegeName) {
+    if (!collegeName || typeof collegeName !== 'string' || !collegeName.trim()) {
+        return 999;
+    }
+    const cleanName = collegeName.trim().toLowerCase();
+    let rankNum = 999;
+
+    if (isDbConnected() && getPool()) {
+        try {
+            const [rows] = await getPool().query(
+                'SELECT band_range, nirf_rank FROM institution_rankings WHERE LOWER(college_name) = ? OR LOWER(college_name) LIKE ? LIMIT 1',
+                [cleanName, `%${cleanName}%`]
+            );
+            if (rows.length > 0) {
+                if (rows[0].nirf_rank) {
+                    rankNum = Number(rows[0].nirf_rank);
+                } else if (rows[0].band_range) {
+                    const match = String(rows[0].band_range).match(/(\d+)\s*-\s*(\d+)/);
+                    if (match) {
+                        rankNum = Number(match[1]);
+                    }
+                }
+            }
+        } catch (e) { }
+    } else {
+        const found = memoryInstitutionRankings.find(r => r.college_name.toLowerCase().includes(cleanName) || cleanName.includes(r.college_name.toLowerCase()));
+        if (found) {
+            if (found.nirf_rank) rankNum = Number(found.nirf_rank);
+            else if (found.band_range) {
+                const match = String(found.band_range).match(/(\d+)\s*-\s*(\d+)/);
+                if (match) rankNum = Number(match[1]);
+            }
+        }
+    }
+    return rankNum;
+}
+
 async function candidateScoringValues(email) {
     let education = [], experience = [], certifications = [], phdRows = [];
     if (isDbConnected() && getPool()) {
@@ -732,17 +900,28 @@ async function candidateScoringValues(email) {
         return sum + (m ? +m[1] * 12 : 0) + (n ? +n[1] : 0);
     }, 0);
     const phd = phdRows[0] || {};
+
+    const ugRank = await resolveInstituteRankNumber(field('ug', 'institution_name') || field('ug', 'institution_other'));
+    const pgRank = await resolveInstituteRankNumber(field('pg', 'institution_name') || field('pg', 'institution_other'));
+    const mphilRank = await resolveInstituteRankNumber(field('mphil', 'institution_name') || field('mphil', 'institution_other'));
+
     return {
         'tenth.score': field('tenth', 'percentage'),
         'tenth.medium': field('tenth', 'medium'),
         'twelfth.score': field('twelfth', 'percentage'),
         'twelfth.medium': field('twelfth', 'medium'),
-        ...Object.fromEntries(['ug', 'pg', 'mphil'].flatMap(t => [
-            [`${t}.score`, field(t, 'percentage')],
-            [`${t}.institute`, field(t, 'institution_name')],
-            [`${t}.first_attempt`, field(t, 'first_attempt')],
-            [`${t}.first_class`, field(t, 'first_class')]
-        ])),
+        'ug.score': field('ug', 'percentage'),
+        'ug.institute': ugRank,
+        'ug.first_attempt': field('ug', 'first_attempt'),
+        'ug.first_class': field('ug', 'first_class'),
+        'pg.score': field('pg', 'percentage'),
+        'pg.institute': pgRank,
+        'pg.first_attempt': field('pg', 'first_attempt'),
+        'pg.first_class': field('pg', 'first_class'),
+        'mphil.score': field('mphil', 'percentage'),
+        'mphil.institute': mphilRank,
+        'mphil.first_attempt': field('mphil', 'first_attempt'),
+        'mphil.first_class': field('mphil', 'first_class'),
         'ug.gate_score': field('ug', 'ug_gate_score'),
         'ug.net_slet_score': field('ug', 'ug_net_slet_score'),
         'phd.status': phd.status,
@@ -842,12 +1021,37 @@ app.get('/api/scoring/candidate', async (req, res) => {
 app.get('/api/scoring/parameters', async (req, res) => {
     try {
         if (isDbConnected() && getPool()) {
+            try {
+                await getPool().query(`
+                    UPDATE scoring_parameters 
+                    SET value_type = 'number' 
+                    WHERE candidate_field IN ('ug.institute', 'pg.institute', 'mphil.institute') OR parameter_key IN ('ug_institute', 'pg_institute', 'mphil_institute')
+                `);
+            } catch (e) { }
             const [rows] = await getPool().query('SELECT p.*, r.id AS range_id, r.range_type, r.min_value, r.max_value, r.category_value, r.assigned_score, r.display_order AS range_order FROM scoring_parameters p LEFT JOIN scoring_ranges r ON r.parameter_id=p.id ORDER BY p.display_order,p.id,r.display_order,r.id');
             const grouped = [];
             rows.forEach(r => {
                 let p = grouped.find(x => x.id === r.id);
                 if (!p) { p = { ...r, ranges: [] }; delete p.range_id; grouped.push(p) }
-                if (r.range_id) p.ranges.push({ id: r.range_id, range_type: r.range_type, min_value: r.min_value, max_value: r.max_value, category_value: r.category_value, assigned_score: r.assigned_score, display_order: r.range_order })
+                if (['ug.institute', 'pg.institute', 'mphil.institute'].includes(p.candidate_field) || ['ug_institute', 'pg_institute', 'mphil_institute'].includes(p.parameter_key)) {
+                    p.value_type = 'number';
+                }
+                if (r.range_id) {
+                    let minV = r.min_value;
+                    let maxV = r.max_value;
+                    let rType = r.range_type;
+                    if (p.value_type === 'number') {
+                        rType = 'number';
+                        if (r.category_value) {
+                            const m = String(r.category_value).match(/(\d+)\s*-\s*(\d+)/);
+                            if (m) {
+                                minV = minV ?? Number(m[1]);
+                                maxV = maxV ?? Number(m[2]);
+                            }
+                        }
+                    }
+                    p.ranges.push({ id: r.range_id, range_type: rType, min_value: minV, max_value: maxV, category_value: r.category_value, assigned_score: r.assigned_score, display_order: r.range_order });
+                }
             });
             return res.json({ success: true, parameters: grouped });
         } else {
@@ -913,10 +1117,10 @@ app.delete('/api/admin/scoring/parameters/:id', async (req, res) => {
 // Public Endpoint: Fetch active dropdown options
 app.get('/api/dropdowns', async (req, res) => {
     try {
-        const { category } = req.query;
+        const { category, parent_id } = req.query;
 
         if (isDbConnected() && getPool()) {
-            let sql = 'SELECT id, category, option_value, option_label FROM dropdown_options WHERE is_active = 1';
+            let sql = 'SELECT id, category, option_value, option_label, parent_id FROM dropdown_options WHERE is_active = 1';
             const params = [];
             if (category) {
                 if (category === 'pg_domain') {
@@ -927,17 +1131,21 @@ app.get('/api/dropdowns', async (req, res) => {
                     params.push(category);
                 }
             }
+            if (parent_id) {
+                sql += ' AND parent_id = ?';
+                params.push(parent_id);
+            }
             sql += ' ORDER BY display_order ASC, option_label ASC';
             const [rows] = await getPool().query(sql, params);
 
-            if (category) {
+            if (category || parent_id) {
                 return res.json({ success: true, category, options: rows });
             }
 
             const grouped = {};
             rows.forEach(r => {
                 if (!grouped[r.category]) grouped[r.category] = [];
-                grouped[r.category].push({ id: r.id, value: r.option_value, label: r.option_label });
+                grouped[r.category].push({ id: r.id, value: r.option_value, label: r.option_label, parent_id: r.parent_id });
             });
             return res.json({ success: true, dropdowns: grouped });
         } else {
@@ -949,13 +1157,19 @@ app.get('/api/dropdowns', async (req, res) => {
                 } else {
                     filtered = filtered.filter(d => d.category === category);
                 }
+            }
+            if (parent_id) {
+                filtered = filtered.filter(d => String(d.parent_id) === String(parent_id));
+            }
+
+            if (category || parent_id) {
                 return res.json({ success: true, category, options: filtered });
             }
 
             const grouped = {};
             filtered.forEach(r => {
                 if (!grouped[r.category]) grouped[r.category] = [];
-                grouped[r.category].push({ id: r.id, value: r.option_value, label: r.option_label });
+                grouped[r.category].push({ id: r.id, value: r.option_value, label: r.option_label, parent_id: r.parent_id });
             });
             return res.json({ success: true, dropdowns: grouped });
         }
@@ -970,9 +1184,23 @@ app.get('/api/admin/dropdowns', async (req, res) => {
     try {
         if (isDbConnected() && getPool()) {
             const [rows] = await getPool().query('SELECT * FROM dropdown_options ORDER BY category ASC, display_order ASC, id ASC');
-            return res.json({ success: true, options: rows });
+            const seen = new Set();
+            const options = rows.filter(r => {
+                const k = `${r.category}_${(r.option_value || r.option_label || '').toLowerCase()}`;
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+            return res.json({ success: true, options });
         } else {
-            return res.json({ success: true, options: memoryDropdowns });
+            const seen = new Set();
+            const options = memoryDropdowns.filter(r => {
+                const k = `${r.category}_${(r.option_value || r.option_label || '').toLowerCase()}`;
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+            return res.json({ success: true, options });
         }
     } catch (err) {
         console.error('Admin dropdown fetch error:', err);
@@ -980,22 +1208,85 @@ app.get('/api/admin/dropdowns', async (req, res) => {
     }
 });
 
+/* ===========================================================
+   NEW RELATIONAL DROPDOWN APIs (DEPARTMENTS, DESIGNATIONS, PG DOMAINS)
+=========================================================== */
+
+app.get('/api/departments', async (req, res) => {
+    try {
+        if (!isDbConnected() || !getPool()) return res.json({ success: true, data: [] });
+        const [rows] = await getPool().query('SELECT id, code, name, display_order FROM departments WHERE is_active = 1 ORDER BY display_order ASC');
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.get('/api/departments/:code/designations', async (req, res) => {
+    try {
+        if (!isDbConnected() || !getPool()) return res.json({ success: true, data: [] });
+        const { code } = req.params;
+        let sql = `
+            SELECT DISTINCT ds.id, ds.name, ds.display_order 
+            FROM designations ds
+            JOIN department_designations dd ON ds.id = dd.designation_id
+            JOIN departments dp ON dd.department_id = dp.id
+            WHERE ds.is_active = 1 AND dp.is_active = 1
+        `;
+        const params = [];
+        if (code !== 'ALL') {
+            sql += ' AND dp.code = ?';
+            params.push(code);
+        }
+        sql += ' ORDER BY ds.display_order ASC';
+
+        const [rows] = await getPool().query(sql, params);
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.get('/api/departments/:code/pg-domains', async (req, res) => {
+    try {
+        if (!isDbConnected() || !getPool()) return res.json({ success: true, data: [] });
+        const { code } = req.params;
+        const [rows] = await getPool().query(`
+            SELECT pg.id, pg.name, pg.display_order 
+            FROM pg_domains pg
+            JOIN department_pg_domains dpd ON pg.id = dpd.pg_domain_id
+            JOIN departments dp ON dpd.department_id = dp.id
+            WHERE dp.code = ? AND pg.is_active = 1 AND dp.is_active = 1
+            ORDER BY pg.display_order ASC
+        `, [code]);
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 // Admin Endpoint: Add a new dropdown option
 app.post('/api/admin/dropdowns', async (req, res) => {
     try {
-        const { category, option_value, option_label } = req.body;
+        const { category, option_value, option_label, parent_id } = req.body;
         if (!category || !option_value || !option_label) {
             return res.status(400).json({ success: false, message: 'Category, value, and label are required.' });
         }
 
         const cat = category.trim().toLowerCase();
-        const val = option_value.trim();
+        let val = option_value.trim();
         const lbl = option_label.trim();
+        const pId = parent_id ? parseInt(parent_id, 10) : null;
+
+        // Guarantee DB uniqueness for identical post mappings across different departments
+        if (cat === 'post' && pId) {
+            val = `${val}_dept${pId}`;
+        }
 
         if (isDbConnected() && getPool()) {
             await getPool().query(
-                'INSERT INTO dropdown_options (category, option_value, option_label, is_active) VALUES (?, ?, ?, 1)',
-                [cat, val, lbl]
+                'INSERT INTO dropdown_options (category, option_value, option_label, parent_id, is_active) VALUES (?, ?, ?, ?, 1)',
+                [cat, val, lbl, pId]
             );
         } else {
             const newId = memoryDropdowns.length ? Math.max(...memoryDropdowns.map(d => d.id)) + 1 : 1;
@@ -1004,6 +1295,7 @@ app.post('/api/admin/dropdowns', async (req, res) => {
                 category: cat,
                 option_value: val,
                 option_label: lbl,
+                parent_id: pId,
                 is_active: 1,
                 display_order: 99
             });
@@ -1012,6 +1304,9 @@ app.post('/api/admin/dropdowns', async (req, res) => {
         res.json({ success: true, message: 'Dropdown option added successfully.' });
     } catch (err) {
         console.error('Admin dropdown add error:', err);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'This option already exists.' });
+        }
         res.status(500).json({ success: false, message: 'Failed to add dropdown option.' });
     }
 });
@@ -1039,22 +1334,32 @@ app.put('/api/admin/dropdowns/:id/toggle', async (req, res) => {
 app.put('/api/admin/dropdowns/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { option_label, option_value } = req.body;
+        const { option_label, option_value, parent_id } = req.body;
         const lbl = option_label ? option_label.trim() : '';
         const val = option_value ? option_value.trim() : lbl;
+        let updateParentId = parent_id !== undefined;
+        let pId = parent_id ? parseInt(parent_id, 10) : null;
 
         if (!lbl) return res.status(400).json({ success: false, message: 'Label required.' });
 
         if (isDbConnected() && getPool()) {
-            await getPool().query(
-                'UPDATE dropdown_options SET option_label = ?, option_value = ? WHERE id = ?',
-                [lbl, val, id]
-            );
+            if (updateParentId) {
+                await getPool().query(
+                    'UPDATE dropdown_options SET option_label = ?, option_value = ?, parent_id = ? WHERE id = ?',
+                    [lbl, val, pId, id]
+                );
+            } else {
+                await getPool().query(
+                    'UPDATE dropdown_options SET option_label = ?, option_value = ? WHERE id = ?',
+                    [lbl, val, id]
+                );
+            }
         } else {
             const opt = memoryDropdowns.find(d => d.id === parseInt(id));
             if (opt) {
                 opt.option_label = lbl;
                 opt.option_value = val;
+                if (updateParentId) opt.parent_id = pId;
             }
         }
         res.json({ success: true, message: 'Dropdown option updated successfully.' });
@@ -1078,6 +1383,238 @@ app.delete('/api/admin/dropdowns/:id', async (req, res) => {
     } catch (err) {
         console.error('Admin dropdown delete error:', err);
         res.status(500).json({ success: false, message: 'Failed to delete dropdown option.' });
+    }
+});
+
+/* ===========================================================
+   8.5 INSTITUTION RANKINGS & CSV UPLOAD API ENDPOINTS
+=========================================================== */
+
+let memoryInstitutionRankings = [
+    { id: 1, college_name: 'IIT Madras', category: 'Engineering', location: 'Chennai', band_range: '1-50', nirf_rank: 1, score: 99 },
+    { id: 2, college_name: 'Anna University', category: 'Engineering', location: 'Chennai', band_range: '1-50', nirf_rank: 13, score: 87 },
+    { id: 3, college_name: 'National Institute of Technology Tiruchirappalli', category: 'Engineering', location: 'Tiruchirappalli', band_range: '1-50', nirf_rank: 9, score: 91 },
+    { id: 4, college_name: 'Vellore Institute of Technology', category: 'Engineering', location: 'Vellore', band_range: '1-50', nirf_rank: 11, score: 89 },
+    { id: 5, college_name: 'Loyola College', category: 'Arts & Science', location: 'Chennai', band_range: '1-50', nirf_rank: 7, score: 93 },
+    { id: 6, college_name: 'PSG College of Arts and Science', category: 'Arts & Science', location: 'Coimbatore', band_range: '1-50', nirf_rank: 20, score: 90 }
+];
+
+async function ensureInstitutionRankingsTable() {
+    if (isDbConnected() && getPool()) {
+        try {
+            await getPool().query(`
+                CREATE TABLE IF NOT EXISTS institution_rankings (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    college_name VARCHAR(255) NOT NULL,
+                    category VARCHAR(50) DEFAULT 'Engineering',
+                    location VARCHAR(100) DEFAULT NULL,
+                    band_range VARCHAR(50) DEFAULT NULL,
+                    nirf_rank INT DEFAULT NULL,
+                    score DECIMAL(5,2) DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+            try {
+                await getPool().query(`ALTER TABLE institution_rankings ADD COLUMN location VARCHAR(100) DEFAULT NULL`);
+            } catch (e) { }
+
+            // Migration / Data Cleanup: Move city names stored in band_range to location column, default band_range to '1-50'
+            try {
+                await getPool().query(`
+                    UPDATE institution_rankings 
+                    SET location = band_range, band_range = '1-50' 
+                    WHERE (location IS NULL OR location = '') AND band_range NOT REGEXP '[0-9]' AND band_range IS NOT NULL
+                `);
+                await getPool().query(`
+                    UPDATE institution_rankings 
+                    SET category = 'Arts & Science' 
+                    WHERE category = 'Engineering' AND (
+                        college_name LIKE '%Arts%' OR 
+                        college_name LIKE '%Science%' OR 
+                        college_name LIKE '%Fatima%' OR 
+                        college_name LIKE '%Lady Doak%' OR 
+                        college_name LIKE '%Guru Nanak%' OR 
+                        college_name LIKE '%Christian%'
+                    )
+                `);
+                // Update scoring_parameters value_type to 'number' for UG / PG / MPhil Institute parameters
+                await getPool().query(`
+                    UPDATE scoring_parameters 
+                    SET value_type = 'number' 
+                    WHERE candidate_field IN ('ug.institute', 'pg.institute', 'mphil.institute') OR parameter_key IN ('ug_institute', 'pg_institute', 'mphil_institute')
+                `);
+            } catch (e) {
+                console.error('Error migrating institution rankings columns:', e.message);
+            }
+
+            const [checkRows] = await getPool().query('SELECT COUNT(*) AS count FROM institution_rankings');
+            if (checkRows[0] && checkRows[0].count === 0) {
+                const seedData = [
+                    ['IIT Madras', 'Engineering', 'Chennai', '1-50', 1, 99.00],
+                    ['Anna University', 'Engineering', 'Chennai', '1-50', 13, 87.00],
+                    ['National Institute of Technology Tiruchirappalli', 'Engineering', 'Tiruchirappalli', '1-50', 9, 91.00],
+                    ['Vellore Institute of Technology', 'Engineering', 'Vellore', '1-50', 11, 89.00],
+                    ['Loyola College', 'Arts & Science', 'Chennai', '1-50', 7, 93.00],
+                    ['Presidency College', 'Arts & Science', 'Chennai', '1-50', 3, 97.00],
+                    ['Madras Christian College', 'Arts & Science', 'Chennai', '1-50', 17, 83.00],
+                    ['PSG College of Arts and Science', 'Arts & Science', 'Coimbatore', '1-50', 20, 90.00]
+                ];
+                await getPool().query('INSERT INTO institution_rankings (college_name, category, location, band_range, nirf_rank, score) VALUES ?', [seedData]);
+            }
+        } catch (err) {
+            console.error('Error ensuring institution_rankings table:', err.message);
+        }
+    }
+}
+
+// Admin Endpoint: Fetch all ranked institutions
+app.get('/api/admin/institutions', async (req, res) => {
+    try {
+        await ensureInstitutionRankingsTable();
+        if (isDbConnected() && getPool()) {
+            const [rows] = await getPool().query('SELECT * FROM institution_rankings ORDER BY category ASC, (nirf_rank IS NULL) ASC, nirf_rank ASC, id ASC');
+            return res.json({ success: true, institutions: rows });
+        } else {
+            return res.json({ success: true, institutions: memoryInstitutionRankings });
+        }
+    } catch (err) {
+        console.error('Error fetching institution rankings:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch institution rankings.' });
+    }
+});
+
+// Admin Endpoint: Upload CSV file & replace existing institution rankings by category or overall
+app.post('/api/admin/institutions/upload', async (req, res) => {
+    try {
+        const { csvContent, category: reqCategory } = req.body;
+        const uploadCategory = reqCategory || req.query.category || 'all';
+
+        if (!csvContent || typeof csvContent !== 'string') {
+            return res.status(400).json({ success: false, message: 'CSV content string is required in csvContent field.' });
+        }
+        await ensureInstitutionRankingsTable();
+
+        const lines = csvContent.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) {
+            return res.status(400).json({ success: false, message: 'CSV file content is empty.' });
+        }
+
+        const firstLineLower = lines[0].toLowerCase();
+        const hasHeader = firstLineLower.includes('name') || firstLineLower.includes('college') || firstLineLower.includes('rank') || firstLineLower.includes('band') || firstLineLower.includes('location') || firstLineLower.includes('city');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        const newRows = [];
+        dataLines.forEach((line) => {
+            const cols = line.split(/,|\t/).map(c => c.trim().replace(/^["']|["']$/g, ''));
+            if (cols.length === 0 || !cols[0]) return;
+
+            const college_name = cols[0];
+            let location = null;
+            let band_range = null;
+            let nirf_rank = null;
+            let category = uploadCategory !== 'all' ? uploadCategory : 'Engineering';
+
+            // Scan remaining columns dynamically
+            for (let i = 1; i < cols.length; i++) {
+                const val = cols[i];
+                if (!val) continue;
+                const lowerVal = val.toLowerCase();
+
+                // Check if category
+                if (lowerVal.includes('engineering')) {
+                    category = 'Engineering';
+                } else if (lowerVal.includes('arts') || lowerVal.includes('science')) {
+                    category = 'Arts & Science';
+                }
+                // Check if numeric rank
+                else if (/^\d+$/.test(val)) {
+                    const rankNum = parseInt(val, 10);
+                    if (!isNaN(rankNum) && rankNum > 0 && rankNum <= 1000) {
+                        nirf_rank = rankNum;
+                        if (rankNum <= 50) band_range = '1-50';
+                        else if (rankNum <= 100) band_range = '51-100';
+                        else if (rankNum <= 150) band_range = '101-150';
+                        else if (rankNum <= 200) band_range = '151-200';
+                        else band_range = '201-300';
+                    }
+                }
+                // Check if explicit band range (e.g. 1-50, 51-100, 101-150, Top 50, etc.)
+                else if (/\d+[\s-]+\d+/.test(val) || lowerVal.includes('band') || lowerVal.includes('top')) {
+                    band_range = val;
+                }
+                // Otherwise treat non-numeric, non-category string as location/city
+                else if (!location) {
+                    location = val;
+                }
+            }
+
+            // Fallback default band range if not found
+            if (!band_range && !nirf_rank) {
+                band_range = '1-50';
+            }
+
+            const calculatedScore = nirf_rank ? Math.max(10, 100 - nirf_rank) : (band_range && band_range.includes('1-50') ? 90 : 70);
+            newRows.push([college_name, category, location, band_range, nirf_rank, calculatedScore]);
+        });
+
+        if (newRows.length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid college rows parsed from CSV file.' });
+        }
+
+        if (isDbConnected() && getPool()) {
+            if (uploadCategory !== 'all') {
+                await getPool().query('DELETE FROM institution_rankings WHERE category = ?', [uploadCategory]);
+            } else {
+                await getPool().query('TRUNCATE TABLE institution_rankings');
+            }
+            await getPool().query('INSERT INTO institution_rankings (college_name, category, location, band_range, nirf_rank, score) VALUES ?', [newRows]);
+            const [allRows] = await getPool().query('SELECT * FROM institution_rankings ORDER BY category ASC, (nirf_rank IS NULL) ASC, nirf_rank ASC, id ASC');
+            return res.json({
+                success: true,
+                message: `Successfully uploaded ${newRows.length} ${uploadCategory !== 'all' ? uploadCategory : ''} institution rankings.`,
+                count: newRows.length,
+                institutions: allRows
+            });
+        } else {
+            if (uploadCategory !== 'all') {
+                memoryInstitutionRankings = memoryInstitutionRankings.filter(r => r.category !== uploadCategory);
+            } else {
+                memoryInstitutionRankings = [];
+            }
+            const newlyAdded = newRows.map((r, i) => ({
+                id: memoryInstitutionRankings.length + i + 1,
+                college_name: r[0],
+                category: r[1],
+                location: r[2],
+                band_range: r[3],
+                nirf_rank: r[4],
+                score: r[5]
+            }));
+            memoryInstitutionRankings.push(...newlyAdded);
+            return res.json({
+                success: true,
+                message: `Successfully loaded ${newRows.length} ${uploadCategory !== 'all' ? uploadCategory : ''} institution rankings in memory fallback.`,
+                count: newRows.length,
+                institutions: memoryInstitutionRankings
+            });
+        }
+    } catch (err) {
+        console.error('Error uploading institution rankings CSV:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// Admin Endpoint: Clear all institution rankings
+app.delete('/api/admin/institutions', async (req, res) => {
+    try {
+        if (isDbConnected() && getPool()) {
+            await getPool().query('TRUNCATE TABLE institution_rankings');
+        }
+        memoryInstitutionRankings = [];
+        res.json({ success: true, message: 'All institution rankings cleared.' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
@@ -1151,17 +1688,17 @@ app.get('/api/admin/applications/:email', async (req, res) => {
         const { email } = req.params;
 
         if (isDbConnected() && getPool()) {
-            const [users] = await getPool().query('SELECT id, email, department, created_at FROM users WHERE email = ?', [email]);
+            const [users] = await getPool().query('SELECT int_User_Id as id, txt_User_Email as email, txt_Department_Name as department, dte_Created_Date as created_at FROM tbl_Users WHERE txt_User_Email = ?', [email]);
             if (users.length === 0) {
                 return res.status(404).json({ success: false, message: 'User not found.' });
             }
 
             const user = users[0];
-            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ?', [email]);
-            const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ?', [email]);
-            const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ?', [email]);
-            const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ?', [email]);
-            const [phdDetails] = await getPool().query('SELECT * FROM user_phd_details WHERE user_email = ?', [email]);
+            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
+            const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [phdDetails] = await getPool().query('SELECT * FROM user_phd_details WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
 
             return res.json({
                 success: true,
@@ -1191,6 +1728,355 @@ app.get('/api/admin/applications/:email', async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to fetch application detail.' });
     }
 });
+
+/* ===========================================================
+   9.5 DYNAMIC DATABASE-DRIVEN CSV EXPORT ENDPOINT
+=========================================================== */
+
+function escapeCsvCell(val) {
+    if (val === null || val === undefined) return '';
+    let str = String(val).trim();
+    if (str === '' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined' || str.toLowerCase() === 'none') return '';
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        str = '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+}
+
+const exportApplicantCsvHandler = async (req, res) => {
+    try {
+        const { department, post, designation, fromDate, toDate } = req.query;
+        const targetPost = post || designation;
+
+        // Date validation check
+        if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+            return res.status(400).json({ success: false, message: 'From Date cannot be greater than To Date.' });
+        }
+
+        let applicantRows = [];
+
+        if (isDbConnected() && getPool()) {
+            let sql = `
+                SELECT 
+                    u.id AS user_id_val,
+                    u.email AS user_email_val,
+                    u.department AS user_dept_val,
+                    u.created_at AS user_created_val,
+                    p.*,
+                    phd.university AS phd_university,
+                    phd.title AS phd_title,
+                    phd.guide_name AS phd_guide_name,
+                    phd.guide_college AS phd_guide_college,
+                    phd.status AS phd_status,
+                    phd.year_of_registration AS phd_year_reg,
+                    phd.year_of_completion AS phd_year_comp,
+                    phd.no_of_publications_during_phd AS phd_pub_during,
+                    phd.no_of_publications_post_phd AS phd_pub_post,
+                    phd.post_phd_experience AS phd_post_exp,
+                    phd.no_of_awards AS phd_awards_count
+                FROM users u
+                INNER JOIN (
+                    SELECT p1.*
+                    FROM personal_info p1
+                    INNER JOIN (
+                        SELECT MAX(id) AS max_id FROM personal_info GROUP BY user_email
+                    ) latest ON p1.id = latest.max_id
+                ) p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != ''
+                LEFT JOIN user_phd_details phd ON u.email = phd.user_email
+                WHERE 1=1
+            `;
+            const params = [];
+
+            if (department && department.toLowerCase() !== 'all') {
+                sql += ` AND LOWER(u.department) = LOWER(?)`;
+                params.push(department.trim());
+            }
+
+            if (targetPost && targetPost.toLowerCase() !== 'all') {
+                sql += ` AND LOWER(p.post) = LOWER(?)`;
+                params.push(targetPost.trim());
+            }
+
+            if (fromDate) {
+                sql += ` AND (DATE(u.created_at) >= ? OR DATE(p.created_at) >= ? OR p.applied_date >= ?)`;
+                params.push(fromDate.trim(), fromDate.trim(), fromDate.trim());
+            }
+
+            if (toDate) {
+                sql += ` AND (DATE(u.created_at) <= ? OR DATE(p.created_at) <= ? OR p.applied_date <= ?)`;
+                params.push(toDate.trim(), toDate.trim(), toDate.trim());
+            }
+
+            sql += ` ORDER BY COALESCE(u.department, '') ASC, COALESCE(p.post, '') ASC, COALESCE(p.gender, '') ASC, COALESCE(p.full_name, '') ASC`;
+
+            const [dbRows] = await getPool().query(sql, params);
+
+            // Fetch education for mapped rows
+            for (const r of dbRows) {
+                const [eduRows] = await getPool().query('SELECT * FROM user_education WHERE user_email = ?', [r.user_email_val]);
+                const byType = {};
+                (eduRows || []).forEach(e => { if (e.qual_type) byType[e.qual_type] = e; });
+                r.educationMap = byType;
+            }
+            applicantRows = dbRows;
+        } else {
+            // Memory Fallback
+            applicantRows = memoryUsers.map(u => {
+                const p = memoryPersonal.find(per => per.user_email === u.email) || {};
+                const phd = memoryPhd.find(ph => ph.user_email === u.email) || {};
+                const eduRows = memoryEducation.filter(e => e.user_email === u.email);
+                const byType = {};
+                eduRows.forEach(e => { if (e.qual_type) byType[e.qual_type] = e; });
+
+                return {
+                    user_id_val: u.id,
+                    user_email_val: u.email,
+                    user_dept_val: u.department,
+                    user_created_val: u.created_at,
+                    ...p,
+                    phd_university: phd.university,
+                    phd_title: phd.title,
+                    phd_guide_name: phd.guide_name,
+                    phd_guide_college: phd.guide_college,
+                    phd_status: phd.status,
+                    phd_year_reg: phd.year_of_registration,
+                    phd_year_comp: phd.year_of_completion,
+                    phd_pub_during: phd.no_of_publications_during_phd,
+                    phd_pub_post: phd.no_of_publications_post_phd,
+                    phd_post_exp: phd.post_phd_experience,
+                    phd_awards_count: phd.no_of_awards,
+                    educationMap: byType
+                };
+            }).filter(r => r.full_name && r.full_name.trim() !== '');
+
+            // Apply Memory Filtering
+            if (department && department.toLowerCase() !== 'all') {
+                const targetDept = department.trim().toLowerCase();
+                applicantRows = applicantRows.filter(r =>
+                    (r.user_dept_val && r.user_dept_val.toLowerCase() === targetDept) ||
+                    (r.department && r.department.toLowerCase() === targetDept)
+                );
+            }
+
+            if (targetPost && targetPost.toLowerCase() !== 'all') {
+                const filterP = targetPost.trim().toLowerCase();
+                applicantRows = applicantRows.filter(r => r.post && r.post.toLowerCase() === filterP);
+            }
+
+            if (fromDate) {
+                applicantRows = applicantRows.filter(r => {
+                    const d1 = r.applied_date ? String(r.applied_date).substring(0, 10) : null;
+                    const d2 = r.user_created_val ? String(r.user_created_val).substring(0, 10) : null;
+                    const d3 = r.created_at ? String(r.created_at).substring(0, 10) : null;
+                    return (d1 && d1 >= fromDate.trim()) || (d2 && d2 >= fromDate.trim()) || (d3 && d3 >= fromDate.trim());
+                });
+            }
+
+            if (toDate) {
+                applicantRows = applicantRows.filter(r => {
+                    const d1 = r.applied_date ? String(r.applied_date).substring(0, 10) : null;
+                    const d2 = r.user_created_val ? String(r.user_created_val).substring(0, 10) : null;
+                    const d3 = r.created_at ? String(r.created_at).substring(0, 10) : null;
+                    return (d1 && d1 <= toDate.trim()) || (d2 && d2 <= toDate.trim()) || (d3 && d3 <= toDate.trim());
+                });
+            }
+
+            // Memory Sorting: Department -> Post -> Gender -> Full Name
+            applicantRows.sort((a, b) => {
+                const deptA = (a.user_dept_val || a.department || '').toLowerCase();
+                const deptB = (b.user_dept_val || b.department || '').toLowerCase();
+                if (deptA !== deptB) return deptA.localeCompare(deptB);
+
+                const postA = (a.post || '').toLowerCase();
+                const postB = (b.post || '').toLowerCase();
+                if (postA !== postB) return postA.localeCompare(postB);
+
+                const genA = (a.gender || '').toLowerCase();
+                const genB = (b.gender || '').toLowerCase();
+                if (genA !== genB) return genA.localeCompare(genB);
+
+                return (a.full_name || '').localeCompare(b.full_name || '');
+            });
+        }
+
+        // Strict Deduplication Pass by Email to ensure no repeated candidate records
+        const seenEmails = new Set();
+        applicantRows = applicantRows.filter(r => {
+            const emailKey = (r.user_email_val || r.email || '').toLowerCase().trim();
+            if (!emailKey || seenEmails.has(emailKey)) return false;
+            seenEmails.add(emailKey);
+            return true;
+        });
+
+        if (!applicantRows || applicantRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'No applicants found for the selected filters.' });
+        }
+
+        // 80 Exact Headers in exact specification order
+        const CSV_HEADERS = [
+            'userId', 'fullName', 'dateOfBirth', 'age', 'gender', 'communicationAddress',
+            'permanentAddress', 'religion', 'community', 'caste', 'email', 'mobileNumber',
+            'post', 'department', 'appliedDate', 'photo', 'user_id', 'tenth_institution',
+            'tenth_university', 'tenth_medium', 'tenth_cgpa_percentage', 'tenth_first_attempt',
+            'tenth_year', 'twelfth_institution', 'twelfth_university', 'twelfth_medium',
+            'twelfth_cgpa_percentage', 'twelfth_first_attempt', 'twelfth_year', 'ug_institution',
+            'ug_university', 'ug_medium', 'ug_specialization', 'ug_degree', 'ug_cgpa_percentage',
+            'ug_first_attempt', 'ug_year', 'pg_institution', 'pg_university', 'pg_medium',
+            'pg_specialization', 'pg_degree', 'pg_cgpa_percentage', 'pg_first_attempt', 'pg_year',
+            'mphil_institution', 'mphil_university', 'mphil_medium', 'mphil_specialization',
+            'mphil_degree', 'mphil_cgpa_percentage', 'mphil_first_attempt', 'mphil_year',
+            'id', 'medium_weight', 'hsc_weight', 'ug_degree_weight', 'pg_degree_weight',
+            'mphil_weight', 'ug_first_attempt_weight', 'pg_first_attempt_weight', 'total_weight',
+            'created_at', 'updated_at', 'count', 'university', 'title', 'guide_name',
+            'status', 'year_of_registration', 'year_of_completion', 'no_of_publications_during_phd',
+            'no_of_publications_post_phd', 'post_phd_experience', 'guide_college', 'family',
+            'reference', 'any_other_info', 'awards_details', 'no_of_awards'
+        ];
+
+        const csvLines = [];
+        csvLines.push(CSV_HEADERS.join(','));
+
+        applicantRows.forEach((r) => {
+            const eduMap = r.educationMap || {};
+            const tenth = eduMap.tenth || {};
+            const twelfth = eduMap.twelfth || {};
+            const ug = eduMap.ug || {};
+            const pg = eduMap.pg || {};
+            const mphil = eduMap.mphil || {};
+
+            const appliedDateVal = r.applied_date ? String(r.applied_date).substring(0, 10) : (r.created_at ? String(r.created_at).substring(0, 10) : '');
+            const createdAtVal = r.created_at ? String(r.created_at).replace('T', ' ').substring(0, 19) : (r.user_created_val ? String(r.user_created_val).replace('T', ' ').substring(0, 19) : '');
+            const updatedAtVal = r.updated_at ? String(r.updated_at).replace('T', ' ').substring(0, 19) : createdAtVal;
+
+            const rowData = [
+                escapeCsvCell(r.user_id_val || r.id),
+                escapeCsvCell(r.full_name),
+                escapeCsvCell(r.dob ? String(r.dob).substring(0, 10) : ''),
+                escapeCsvCell(r.age),
+                escapeCsvCell(r.gender),
+                escapeCsvCell(r.communication_address),
+                escapeCsvCell(r.permanent_address),
+                escapeCsvCell(r.religion),
+                escapeCsvCell(r.community),
+                escapeCsvCell(r.caste),
+                escapeCsvCell(r.user_email_val || r.email),
+                escapeCsvCell(r.phone),
+                escapeCsvCell(r.post),
+                escapeCsvCell(r.user_dept_val || r.department),
+                escapeCsvCell(appliedDateVal),
+                escapeCsvCell(r.photo_path),
+                escapeCsvCell(r.user_id_val || r.id),
+
+                // Tenth
+                escapeCsvCell(tenth.institution_name || tenth.institution_other),
+                escapeCsvCell(''), // tenth_university
+                escapeCsvCell(tenth.medium || tenth.medium_other),
+                escapeCsvCell(tenth.percentage),
+                escapeCsvCell(tenth.first_attempt),
+                escapeCsvCell(tenth.year_of_passing),
+
+                // Twelfth
+                escapeCsvCell(twelfth.institution_name || twelfth.institution_other),
+                escapeCsvCell(''), // twelfth_university
+                escapeCsvCell(twelfth.medium || twelfth.medium_other),
+                escapeCsvCell(twelfth.percentage),
+                escapeCsvCell(twelfth.first_attempt),
+                escapeCsvCell(twelfth.year_of_passing),
+
+                // UG
+                escapeCsvCell(ug.institution_name || ug.institution_other),
+                escapeCsvCell(''), // ug_university
+                escapeCsvCell(ug.medium || ug.medium_other),
+                escapeCsvCell(ug.specialization || ug.specialization_other),
+                escapeCsvCell(ug.degree || ug.degree_other),
+                escapeCsvCell(ug.percentage),
+                escapeCsvCell(ug.first_attempt),
+                escapeCsvCell(ug.year_of_passing),
+
+                // PG
+                escapeCsvCell(pg.institution_name || pg.institution_other),
+                escapeCsvCell(''), // pg_university
+                escapeCsvCell(pg.medium || pg.medium_other),
+                escapeCsvCell(pg.specialization || pg.specialization_other),
+                escapeCsvCell(pg.degree || pg.degree_other),
+                escapeCsvCell(pg.percentage),
+                escapeCsvCell(pg.first_attempt),
+                escapeCsvCell(pg.year_of_passing),
+
+                // MPhil
+                escapeCsvCell(mphil.institution_name || mphil.institution_other),
+                escapeCsvCell(''), // mphil_university
+                escapeCsvCell(mphil.medium || mphil.medium_other),
+                escapeCsvCell(mphil.specialization || mphil.specialization_other),
+                escapeCsvCell(mphil.degree || mphil.degree_other),
+                escapeCsvCell(mphil.percentage),
+                escapeCsvCell(mphil.first_attempt),
+                escapeCsvCell(mphil.year_of_passing),
+
+                // ID & Weights placeholder cells
+                escapeCsvCell(r.id),
+                escapeCsvCell(''), // medium_weight
+                escapeCsvCell(''), // hsc_weight
+                escapeCsvCell(''), // ug_degree_weight
+                escapeCsvCell(''), // pg_degree_weight
+                escapeCsvCell(''), // mphil_weight
+                escapeCsvCell(''), // ug_first_attempt_weight
+                escapeCsvCell(''), // pg_first_attempt_weight
+                escapeCsvCell(''), // total_weight
+
+                escapeCsvCell(createdAtVal),
+                escapeCsvCell(updatedAtVal),
+                escapeCsvCell(''), // count
+
+                // PhD
+                escapeCsvCell(r.phd_university),
+                escapeCsvCell(r.phd_title),
+                escapeCsvCell(r.phd_guide_name),
+                escapeCsvCell(r.phd_status),
+                escapeCsvCell(r.phd_year_reg),
+                escapeCsvCell(r.phd_year_comp),
+                escapeCsvCell(r.phd_pub_during),
+                escapeCsvCell(r.phd_pub_post),
+                escapeCsvCell(r.phd_post_exp),
+                escapeCsvCell(r.phd_guide_college),
+                escapeCsvCell(''), // family
+                escapeCsvCell(''), // reference
+                escapeCsvCell(''), // any_other_info
+                escapeCsvCell(''), // awards_details
+                escapeCsvCell(r.phd_awards_count)
+            ];
+
+            csvLines.push(rowData.join(','));
+        });
+
+        const csvContent = csvLines.join('\n');
+
+        // Dynamic Filename Generation
+        const deptLabel = department && department.toLowerCase() !== 'all' ? department.trim().toUpperCase() : 'All_Departments';
+        let dateLabel = '';
+        if (fromDate && toDate) {
+            dateLabel = `_${fromDate}_to_${toDate}`;
+        } else if (fromDate) {
+            dateLabel = `_From_${fromDate}`;
+        } else if (toDate) {
+            dateLabel = `_Upto_${toDate}`;
+        } else {
+            dateLabel = `_All_Dates`;
+        }
+        const filename = `Applicants_${deptLabel}${dateLabel}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csvContent);
+    } catch (err) {
+        console.error('CSV export error:', err);
+        res.status(500).json({ success: false, message: 'Failed to generate CSV export.' });
+    }
+};
+
+app.get('/api/applicants/export-csv', exportApplicantCsvHandler);
+app.get('/api/admin/export-csv', exportApplicantCsvHandler);
+
 /* ===========================================================
    9. DATABASE-DRIVEN RECRUITMENT ASSISTANT CHATBOT ENDPOINT
 =========================================================== */

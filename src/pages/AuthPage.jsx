@@ -23,24 +23,19 @@ export const AuthPage = () => {
     const [depts, setDepts] = useState([]);
 
     React.useEffect(() => {
-        fetch('/api/dropdowns?category=department')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success) {
-                    if (data.options) {
-                        setDepts(data.options);
-                    } else if (data.dropdowns && data.dropdowns.department) {
-                        setDepts(data.dropdowns.department);
-                    }
+        fetch('/api/departments')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    setDepts(data.data.map(d => ({ value: d.code, label: d.name })));
                 }
-            })
-            .catch((err) => console.warn('Failed to load active departments:', err));
+            });
+
     }, []);
 
     const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setBanner({ type: '', message: '' });
-
         if (!loginUsername || !loginPassword) {
             setBanner({ type: 'error', message: 'Please enter both username/email and password.' });
             return;

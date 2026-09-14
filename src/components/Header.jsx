@@ -1,9 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, ShieldCheck, User, Sun, Moon } from 'lucide-react';
+import { LogOut, ShieldCheck, User, Sun, Moon, Menu } from 'lucide-react';
 
 export const Header = () => {
-    const { user, isAdmin, activePage, setActivePage, logout, theme, toggleTheme } = useAuth();
+    const { user, isAdmin, activePage, setActivePage, logout, theme, toggleTheme, isSidebarOpen, toggleSidebar } = useAuth();
 
     // If on Auth page and not logged in, don't show the header bar
     if (activePage === 'auth' && !user && !isAdmin) {
@@ -13,13 +13,15 @@ export const Header = () => {
     const hasSidebar = user || isAdmin;
 
     return (
-        <header className={`top-nav ${hasSidebar ? 'has-sidebar' : ''}`}>
+        <header className={`top-nav ${hasSidebar ? 'has-sidebar' : ''} ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
             <div className="wrap nav-content">
-                <div className="brand" style={{ cursor: 'pointer' }} onClick={() => setActivePage(isAdmin ? 'admin' : 'profile')}>
-                    <div className="logo-box">NEC</div>
-                    <div>
-                        <div className="brand-title">National Engineering College</div>
-                        <div className="brand-sub">Faculty &amp; Staff Recruitment Portal</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div className="brand" style={{ cursor: 'pointer' }} onClick={() => setActivePage(isAdmin ? 'admin' : 'profile')}>
+                        <div className="logo-box">NEC</div>
+                        <div>
+                            <div className="brand-title">National Engineering College</div>
+                            <div className="brand-sub">Faculty & Staff Recruitment Portal</div>
+                        </div>
                     </div>
                 </div>
 

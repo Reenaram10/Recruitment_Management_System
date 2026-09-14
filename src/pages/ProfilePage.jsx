@@ -16,12 +16,14 @@ import {
     LogOut,
     ChevronDown,
     ChevronRight,
+    ChevronLeft,
     LayoutDashboard,
-    Edit3
+    Edit3,
+    Menu
 } from 'lucide-react';
 
 export const ProfilePage = () => {
-    const { user, logout, currentStep, setCurrentStep } = useAuth();
+    const { user, logout, currentStep, setCurrentStep, isSidebarOpen, toggleSidebar } = useAuth();
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
@@ -37,7 +39,7 @@ export const ProfilePage = () => {
                 setProfileData(data);
 
                 let unlocked = 1;
-                if (data.personal && data.personal.full_name && data.personal.phone) {
+                if (data.personal && data.personal.full_name) {
                     unlocked = 2;
                 }
                 if (data.education && data.education.length > 0) {
@@ -49,11 +51,7 @@ export const ProfilePage = () => {
                 if (data.certifications && data.certifications.length > 0) {
                     unlocked = 5;
                 }
-                setMaxUnlockedStep(unlocked);
-
-                if (currentStep > unlocked) {
-                    setCurrentStep(unlocked);
-                }
+                setMaxUnlockedStep((prev) => Math.max(prev, unlocked));
             }
         } catch (err) {
             console.error('Error loading profile:', err);
@@ -78,13 +76,18 @@ export const ProfilePage = () => {
 
     const handleStepClick = (stepId) => {
         setWarningMsg('');
-        if (stepId <= maxUnlockedStep || stepId === 3 || stepId === 4) {
-            setCurrentStep(stepId);
-        } else {
-            setWarningMsg(
-                `Step is locked. Please complete mandatory fields first.`
-            );
+        if (stepId > maxUnlockedStep) {
+            setWarningMsg(`Please complete and save step ${maxUnlockedStep} before advancing to step ${stepId}.`);
+            return;
         }
+        setCurrentStep(stepId);
+    };
+
+    const handleSaveOnly = (completedStepId) => {
+        setWarningMsg('');
+        const nextStep = completedStepId + 1;
+        setMaxUnlockedStep((prev) => Math.max(prev, nextStep));
+        fetchProfile();
     };
 
     const handleSaveAndAdvance = (completedStepId) => {
@@ -131,10 +134,20 @@ export const ProfilePage = () => {
     return (
         <div className="profile-page-wrapper">
             {/* Left Fixed Vertical Sidebar */}
-            <aside className="profile-sidebar">
+            <aside className={`profile-sidebar ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
                 <div>
                     {/* User Profile Card Header */}
                     <div className="profile-avatar-wrap">
+                        <div style={{ width: '100%', display: 'flex', justifyContent: isSidebarOpen ? 'flex-end' : 'center', marginBottom: '0.4rem' }}>
+                            <button
+                                type="button"
+                                onClick={toggleSidebar}
+                                className="sidebar-hamburger-btn"
+                                title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                            >
+                                <Menu size={18} />
+                            </button>
+                        </div>
                         {photoUrl ? (
                             <img src={photoUrl} alt="Candidate Profile" className="profile-avatar-img" />
                         ) : (
@@ -159,20 +172,23 @@ export const ProfilePage = () => {
                                 const Icon = tab.icon;
                                 const isActive = currentStep === tab.id;
                                 const isDone = tab.id < maxUnlockedStep;
+                                const isLocked = tab.id > maxUnlockedStep;
                                 const subItems = tabSubDivisions[tab.id] || [];
 
                                 return (
                                     <div key={tab.id} style={{ display: 'flex', flexDirection: 'column' }}>
                                         <button
                                             type="button"
-                                            className={`sidebar-menu-item ${isActive ? 'active' : ''}`}
+                                            className={`sidebar-menu-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                                             onClick={() => handleStepClick(tab.id)}
+                                            style={isLocked ? { opacity: 0.6 } : {}}
                                         >
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <Icon size={15} color={isActive ? '#1d4ed8' : '#64748b'} />
+                                                <Icon size={15} color={isActive ? '#1d4ed8' : (isLocked ? '#94a3b8' : '#64748b')} />
                                                 {tab.label}
                                             </span>
                                             {isDone && <Check size={14} color="#10b981" />}
+                                            {isLocked && <Lock size={13} color="#94a3b8" />}
                                         </button>
 
                                         {isActive && subItems.length > 0 && (
@@ -206,7 +222,7 @@ export const ProfilePage = () => {
             </aside>
 
             {/* Main Right Content Panel */}
-            <main className="profile-main-content">
+            <main className={`profile-main-content ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
                 {/* Horizontal Progress Stepper Bar */}
                 <div className="candidate-stepper-wrapper">
                     <div className="candidate-stepper-container">
@@ -219,24 +235,27 @@ export const ProfilePage = () => {
                         ].map((step, idx) => {
                             const isCompleted = step.id < currentStep || (step.id < maxUnlockedStep && step.id !== currentStep);
                             const isActive = step.id === currentStep;
+                            const isLocked = step.id > maxUnlockedStep;
 
                             return (
                                 <React.Fragment key={step.id}>
                                     {idx > 0 && (
                                         <div
-                                            className={`stepper-line ${step.id <= currentStep ? 'completed' : ''
+                                            className={`stepper-line ${step.id <= maxUnlockedStep ? 'completed' : ''
                                                 }`}
                                         />
                                     )}
 
                                     <div
-                                        className={`stepper-node ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''
-                                            }`}
+                                        className={`stepper-node ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                                         onClick={() => handleStepClick(step.id)}
+                                        style={isLocked ? { cursor: 'not-allowed', opacity: 0.7 } : { cursor: 'pointer' }}
                                     >
                                         <div className="stepper-circle">
                                             {isCompleted ? (
                                                 <Check size={18} strokeWidth={2.5} />
+                                            ) : isLocked ? (
+                                                <Lock size={14} />
                                             ) : (
                                                 <span>{step.id}</span>
                                             )}
@@ -286,47 +305,47 @@ export const ProfilePage = () => {
                     </div>
                 ) : (
                     <>
-                        {currentStep === 1 && (
+                        <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
                             <PersonalTab
                                 profileData={profileData}
-                                onSaveSuccess={() => handleSaveAndAdvance(1)}
+                                onSaveSuccess={() => handleSaveOnly(1)}
                                 onNext={() => handleSaveAndAdvance(1)}
                             />
-                        )}
+                        </div>
 
-                        {currentStep === 2 && (
+                        <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
                             <EducationTab
                                 profileData={profileData}
-                                onSaveSuccess={() => handleSaveAndAdvance(2)}
+                                onSaveSuccess={() => handleSaveOnly(2)}
                                 onNext={() => handleSaveAndAdvance(2)}
                                 onPrev={() => setCurrentStep(1)}
                             />
-                        )}
+                        </div>
 
-                        {currentStep === 3 && (
+                        <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
                             <ExperienceTab
                                 profileData={profileData}
-                                onSaveSuccess={() => handleSaveAndAdvance(3)}
+                                onSaveSuccess={() => handleSaveOnly(3)}
                                 onNext={() => handleSaveAndAdvance(3)}
                                 onPrev={() => setCurrentStep(2)}
                             />
-                        )}
+                        </div>
 
-                        {currentStep === 4 && (
+                        <div style={{ display: currentStep === 4 ? 'block' : 'none' }}>
                             <CertificationsTab
                                 profileData={profileData}
-                                onSaveSuccess={() => handleSaveAndAdvance(4)}
+                                onSaveSuccess={() => handleSaveOnly(4)}
                                 onNext={() => handleSaveAndAdvance(4)}
                                 onPrev={() => setCurrentStep(3)}
                             />
-                        )}
+                        </div>
 
-                        {currentStep === 5 && (
+                        <div style={{ display: currentStep === 5 ? 'block' : 'none' }}>
                             <SubmittedTab
                                 profileData={profileData}
                                 onEditTab={(tabNum) => setCurrentStep(tabNum)}
                             />
-                        )}
+                        </div>
                     </>
                 )}
             </main>

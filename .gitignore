@@ -1,1 +1,4 @@
 database/necfacultyrecruitment24072026.sql
+.env
+node_modules
+tn_engineering_colleges_nirf_rank.csv

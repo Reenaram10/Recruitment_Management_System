@@ -404,6 +404,15 @@ let memoryPhd = [
 ];
 
 
+let memoryInstitutionRankings = [
+    { id: 1, college_name: 'National Engineering College, Kovilpatti', category: 'Engineering', nirf_rank: 101, nba_accredited: 'Yes', tier: 'Tier 2', score: 85 },
+    { id: 2, college_name: 'Anna University, Chennai', category: 'Engineering', nirf_rank: 13, nba_accredited: 'Yes', tier: 'Tier 1', score: 98 },
+    { id: 3, college_name: 'Indian Institute of Technology Madras (IIT Madras)', category: 'Engineering', nirf_rank: 1, nba_accredited: 'Yes', tier: 'Tier 1', score: 100 },
+    { id: 4, college_name: 'National Institute of Technology Tiruchirappalli (NIT Trichy)', category: 'Engineering', nirf_rank: 9, nba_accredited: 'Yes', tier: 'Tier 1', score: 99 },
+    { id: 5, college_name: 'PSG College of Technology, Coimbatore', category: 'Engineering', nirf_rank: 63, nba_accredited: 'Yes', tier: 'Tier 2', score: 90 },
+    { id: 6, college_name: 'Thiagarajar College of Engineering, Madurai', category: 'Engineering', nirf_rank: 85, nba_accredited: 'Yes', tier: 'Tier 2', score: 88 }
+];
+
 async function initDatabase() {
     let host = process.env.DB_HOST || 'localhost';
     let user = process.env.DB_USER || 'root';
@@ -418,58 +427,39 @@ async function initDatabase() {
                 multipleStatements: true
             });
 
+            await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+            await conn.query(`USE \`${dbName}\``);
+
+            // Ensure user_education table exists with proper schema
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS \`user_education\` (
+                  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                  \`user_email\` VARCHAR(255) NOT NULL,
+                  \`qual_type\` VARCHAR(20) NOT NULL,
+                  \`is_na\` TINYINT(1) DEFAULT 0,
+                  \`percentage\` DECIMAL(5,2) DEFAULT NULL,
+                  \`year_of_passing\` INT DEFAULT NULL,
+                  \`medium\` VARCHAR(50) DEFAULT NULL,
+                  \`medium_other\` VARCHAR(100) DEFAULT NULL,
+                  \`first_attempt\` VARCHAR(50) DEFAULT NULL,
+                  \`first_class\` VARCHAR(50) DEFAULT NULL,
+                  \`degree\` VARCHAR(100) DEFAULT NULL,
+                  \`degree_other\` VARCHAR(100) DEFAULT NULL,
+                  \`specialization\` VARCHAR(150) DEFAULT NULL,
+                  \`specialization_other\` VARCHAR(150) DEFAULT NULL,
+                  \`topic\` VARCHAR(255) DEFAULT NULL,
+                  \`institution_name\` VARCHAR(255) DEFAULT NULL,
+                  \`institution_other\` VARCHAR(255) DEFAULT NULL,
+                  \`cert_path\` VARCHAR(255) DEFAULT NULL,
+                  \`ug_gate_score\` VARCHAR(50) DEFAULT NULL,
+                  \`ug_net_slet_score\` VARCHAR(50) DEFAULT NULL,
+                  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  UNIQUE KEY \`user_qual_unique\` (\`user_email\`(191), \`qual_type\`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `);
+
             console.log(`✅ Connected to MySQL server successfully.`);
-
-            const sqlPath = path.join(__dirname, 'database', 'setup_db.sql');
-            if (fs.existsSync(sqlPath)) {
-                const sqlContent = fs.readFileSync(sqlPath, 'utf8');
-                await conn.query(sqlContent);
-                console.log('✅ MySQL Database setup & seed tables executed successfully.');
-            }
-
-            // Ensure missing columns exist and column lengths are adequate in user_education table
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_education\` ADD COLUMN \`ug_gate_score\` VARCHAR(50) DEFAULT NULL;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_education\` ADD COLUMN \`ug_net_slet_score\` VARCHAR(50) DEFAULT NULL;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_education\` MODIFY COLUMN \`first_attempt\` VARCHAR(50) DEFAULT NULL;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_education\` MODIFY COLUMN \`first_class\` VARCHAR(50) DEFAULT NULL;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_phd_details\` ADD COLUMN \`no_of_awards\` INT DEFAULT 0;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_phd_details\` ADD COLUMN \`no_of_funded_projects\` INT DEFAULT 0;`);
-            } catch (e) { }
-            try {
-                await conn.query(`ALTER TABLE \`${dbName}\`.\`user_phd_details\` ADD COLUMN \`no_of_funded_consultancy\` INT DEFAULT 0;`);
-            } catch (e) { }
-            try {
-                await conn.query(`UPDATE \`${dbName}\`.\`scoring_parameters\` SET \`candidate_field\` = 'phd.completed' WHERE \`parameter_key\` = 'phd_completion';`);
-            } catch (e) { }
-            try {
-                await conn.query(`UPDATE \`${dbName}\`.\`scoring_parameters\` SET \`value_type\` = 'category', \`candidate_field\` = 'phd.funded_projects' WHERE \`parameter_key\` = 'funded_projects';`);
-            } catch (e) { }
-            try {
-                await conn.query(`UPDATE \`${dbName}\`.\`scoring_parameters\` SET \`value_type\` = 'category', \`candidate_field\` = 'phd.funded_consultancy' WHERE \`parameter_key\` = 'funded_consultancy';`);
-            } catch (e) { }
-
-            // Auto-clean legacy pg_domain rows and sync clean department PG specializations into MySQL
-            try {
-                await conn.query(`DELETE FROM \`${dbName}\`.\`dropdown_options\` WHERE category = 'pg_domain' OR option_label LIKE 'ECE:%' OR option_label LIKE 'CSE/IT:%' OR option_label LIKE 'EEE:%' OR option_label LIKE 'MECH:%' OR option_label LIKE 'CIVIL:%' OR option_value LIKE 'ECE -%' OR option_value LIKE 'CSE/IT -%' OR option_value LIKE 'EEE -%' OR option_value LIKE 'MECH -%' OR option_value LIKE 'CIVIL -%';`);
-
-                for (const opt of initialDropdownOptions) {
-                    await conn.query(
-                        `INSERT IGNORE INTO \`${dbName}\`.\`dropdown_options\` (category, option_value, option_label, is_active, display_order) VALUES (?, ?, ?, ?, ?)`,
-                        [opt.category, opt.option_value, opt.option_label, opt.is_active || 1, opt.display_order || 0]
-                    );
-                }
-            } catch (e) { console.warn('Failed to sync initial dropdown options to MySQL:', e.message); }
+            console.log('✅ Using normalized tbl_ schema architecture.');
 
             await conn.end();
 
@@ -486,8 +476,142 @@ async function initDatabase() {
             });
 
             isDbConnected = true;
+
+            // Auto-migrate schema: ensure columns exist in base tables
+            const alterCols = [
+                "ALTER TABLE tbl_personal_info ADD COLUMN txt_Ug_Gate_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_personal_info ADD COLUMN txt_Ug_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_personal_info ADD COLUMN txt_Pg_Gate_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_personal_info ADD COLUMN txt_Pg_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_user_education ADD COLUMN txt_Ug_Gate_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_user_education ADD COLUMN txt_Ug_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Awards INT DEFAULT 0",
+                "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Funded_Projects INT DEFAULT 0",
+                "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Funded_Consultancy INT DEFAULT 0"
+            ];
+            for (const colSql of alterCols) {
+                try { await pool.query(colSql); } catch (e) { /* ignore if column exists */ }
+            }
+
+            // Deduplicate tbl_personal_info (keep row with MAX int_Personal_Id for each txt_User_Email)
+            try {
+                await pool.query(`
+                    DELETE p1 FROM tbl_personal_info p1
+                    INNER JOIN tbl_personal_info p2
+                    ON p1.txt_User_Email = p2.txt_User_Email AND p1.int_Personal_Id < p2.int_Personal_Id
+                `);
+                console.log('✅ tbl_personal_info deduplicated.');
+            } catch (e) {
+                console.warn('Warning during tbl_personal_info deduplication:', e.message);
+            }
+
+            // Add UNIQUE key on tbl_personal_info(txt_User_Email)
+            try {
+                await pool.query(`ALTER TABLE tbl_personal_info ADD UNIQUE KEY uk_txt_User_Email (txt_User_Email(191))`);
+                console.log('✅ Added UNIQUE constraint uk_txt_User_Email on tbl_personal_info.');
+            } catch (e) { /* index may already exist */ }
+
+            // Deduplicate tbl_user_education (keep row with MAX int_Education_Id for each txt_User_Email, txt_Qual_Type)
+            try {
+                await pool.query(`
+                    DELETE e1 FROM tbl_user_education e1
+                    INNER JOIN tbl_user_education e2
+                    ON e1.txt_User_Email = e2.txt_User_Email
+                    AND e1.txt_Qual_Type = e2.txt_Qual_Type
+                    AND e1.int_Education_Id < e2.int_Education_Id
+                `);
+                console.log('✅ tbl_user_education deduplicated.');
+            } catch (e) {
+                console.warn('Warning during tbl_user_education deduplication:', e.message);
+            }
+
+            // Add UNIQUE key on tbl_user_education(txt_User_Email, txt_Qual_Type)
+            try {
+                await pool.query(`ALTER TABLE tbl_user_education ADD UNIQUE KEY uk_user_qual (txt_User_Email(191), txt_Qual_Type)`);
+                console.log('✅ Added UNIQUE constraint uk_user_qual on tbl_user_education.');
+            } catch (e) { /* index may already exist */ }
+
+            // Deduplicate tbl_user_phd_details
+            try {
+                await pool.query(`
+                    DELETE d1 FROM tbl_user_phd_details d1
+                    INNER JOIN tbl_user_phd_details d2
+                    ON d1.txt_User_Email = d2.txt_User_Email AND d1.int_Phd_Id < d2.int_Phd_Id
+                `);
+                console.log('✅ tbl_user_phd_details deduplicated.');
+            } catch (e) {
+                console.warn('Warning during tbl_user_phd_details deduplication:', e.message);
+            }
+
+            // Add UNIQUE key on tbl_user_phd_details(txt_User_Email)
+            try {
+                await pool.query(`ALTER TABLE tbl_user_phd_details ADD UNIQUE KEY uk_txt_User_Email (txt_User_Email(191))`);
+                console.log('✅ Added UNIQUE constraint uk_txt_User_Email on tbl_user_phd_details.');
+            } catch (e) { /* index may already exist */ }
+
+            // Re-create Views to guarantee view columns match base tables
+            try {
+                const viewsSql = `
+                    CREATE OR REPLACE VIEW users AS
+                    SELECT int_User_Id AS id, txt_User_Email AS email, txt_User_Password AS password, txt_Department_Name AS department, dte_Created_Date AS created_at
+                    FROM tbl_Users;
+
+                    CREATE OR REPLACE VIEW personal_info AS
+                    SELECT
+                        int_Personal_Id AS id, txt_User_Email AS user_email, dte_Applied_Date AS applied_date, txt_Post_Applied AS post, txt_Post_Other AS post_other,
+                        txt_Full_Name AS full_name, dte_Dob AS dob, int_Age AS age, txt_Father_Name AS father_name, txt_Mother_Name AS mother_name,
+                        txt_Gender AS gender, txt_Gender_Other AS gender_other, txt_Blood_Group AS blood_group, txt_Blood_Group_Other AS blood_group_other,
+                        txt_Marital_Status AS marital_status, txt_Spouse_Name AS spouse_name, txt_Marital_Status_Other AS marital_status_other,
+                        txt_Photo_Path AS photo_path, txt_Nationality AS nationality, txt_Religion AS religion, txt_Religion_Other AS religion_other,
+                        txt_Community AS community, txt_Community_Other AS community_other, txt_Caste AS caste, txt_Contact_Email AS email, txt_Alt_Email AS alt_email,
+                        txt_Phone AS phone, txt_Whatsapp AS whatsapp, txt_Emergency_Name AS emergency_name, txt_Emergency_Relation AS emergency_relation,
+                        txt_Emergency_Phone AS emergency_phone, txt_Aadhaar_No AS aadhaar, txt_Permanent_Address AS permanent_address, txt_Communication_Address AS communication_address,
+                        txt_State_Name AS state, txt_District_Name AS district, txt_Pincode AS pincode, txt_Tenth_Doc_Path AS tenth_doc, txt_Twelfth_Doc_Path AS twelfth_doc,
+                        txt_Ug_Doc_Path AS ug_doc, txt_Pg_Doc_Path AS pg_doc, txt_Mphil_Doc_Path AS mphil_doc, txt_Phd_Doc_Path AS phd_doc, txt_Id_Proof_Doc_Path AS id_proof_doc,
+                        txt_Ug_Gate_Score AS ug_gate_score, txt_Ug_Net_Slet_Score AS ug_net_slet_score, txt_Pg_Gate_Score AS pg_gate_score, txt_Pg_Net_Slet_Score AS pg_net_slet_score,
+                        dte_Created_Date AS created_at, dte_Updated_Date AS updated_at
+                    FROM tbl_Personal_Info;
+
+                    CREATE OR REPLACE VIEW user_education AS
+                    SELECT
+                        int_Education_Id AS id, txt_User_Email AS user_email, txt_Qual_Type AS qual_type, txt_Is_Na AS is_na, dec_Percentage AS percentage,
+                        int_Year_Of_Passing AS year_of_passing, txt_Medium AS medium, txt_Medium_Other AS medium_other, txt_First_Attempt AS first_attempt,
+                        txt_First_Class AS first_class, txt_Degree AS degree, txt_Degree_Other AS degree_other, txt_Specialization AS specialization,
+                        txt_Specialization_Other AS specialization_other, txt_Topic AS topic, txt_Institution_Name AS institution_name, txt_Institution_Other AS institution_other,
+                        txt_Cert_Path AS cert_path, txt_Ug_Gate_Score AS ug_gate_score, txt_Ug_Net_Slet_Score AS ug_net_slet_score, dte_Created_Date AS created_at
+                    FROM tbl_User_Education;
+
+                    CREATE OR REPLACE VIEW user_experience AS
+                    SELECT
+                        int_Experience_Id AS id, txt_User_Email AS user_email, txt_Is_Fresher AS is_fresher, txt_Exp_Type AS exp_type, txt_Org_Name AS org_name,
+                        dte_From_Date AS from_date, dte_To_Date AS to_date, txt_Total_Duration AS total_duration, txt_Designation AS designation, dec_Salary AS salary,
+                        dte_Created_Date AS created_at
+                    FROM tbl_User_Experience;
+
+                    CREATE OR REPLACE VIEW user_certifications AS
+                    SELECT
+                        int_Certification_Id AS id, txt_User_Email AS user_email, txt_Title AS title, txt_Score AS score, txt_Category AS category,
+                        txt_Organization AS organization, int_Year AS year, txt_Cert_Doc AS cert_doc, dte_Created_Date AS created_at
+                    FROM tbl_User_Certifications;
+
+                    CREATE OR REPLACE VIEW user_phd_details AS
+                    SELECT
+                        int_Phd_Id AS id, txt_User_Email AS user_email, txt_University AS university, txt_Thesis_Title AS title, txt_Guide_Name AS guide_name,
+                        txt_Guide_College AS guide_college, txt_Status AS status, int_Year_Of_Registration AS year_of_registration, int_Year_Of_Completion AS year_of_completion,
+                        int_Publications_During_Phd AS no_of_publications_during_phd, int_Publications_Post_Phd AS no_of_publications_post_phd, txt_Post_Phd_Experience AS post_phd_experience,
+                        int_No_Of_Awards AS no_of_awards, int_No_Of_Funded_Projects AS no_of_funded_projects, int_No_Of_Funded_Consultancy AS no_of_funded_consultancy, dte_Created_Date AS created_at, dte_Updated_Date AS updated_at
+                    FROM tbl_User_Phd_Details;
+                `;
+                await pool.query(viewsSql);
+                console.log('✅ Views created/updated successfully.');
+            } catch (e) {
+                console.warn('Warning creating views:', e.message);
+            }
+
+            console.log('✅ Database auto-migrations completed.');
             return;
         } catch (err) {
+            console.error('DB INIT CATCH ERROR for PW:', pw, err.message);
             // try next password
         }
     }
@@ -506,5 +630,6 @@ module.exports = {
     memoryEducation,
     memoryExperience,
     memoryCertifications,
-    memoryPhd
+    memoryPhd,
+    memoryInstitutionRankings
 };

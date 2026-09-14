@@ -3,6 +3,17 @@ import { useAuth } from '../../context/AuthContext';
 import { Banner } from '../Banner';
 import { User, Camera, ArrowRight, Save, Phone } from 'lucide-react';
 
+const formatDateValue = (val) => {
+    if (!val) return '';
+    try {
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return '';
+        return d.toISOString().split('T')[0];
+    } catch {
+        return '';
+    }
+};
+
 export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
     const { user } = useAuth();
     const formRef = useRef(null);
@@ -11,88 +22,80 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
     const [posts, setPosts] = useState([]);
     const [jobCalls, setJobCalls] = useState([]);
 
-    useEffect(() => {
-        fetch('/api/dropdowns?category=post')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success) {
-                    if (data.options) {
-                        setPosts(data.options);
-                    } else if (data.dropdowns && data.dropdowns.post) {
-                        setPosts(data.dropdowns.post);
-                    }
-                }
-            })
-            .catch((err) => console.warn('Failed to fetch active posts:', err));
-
-        fetch('/api/dropdowns?category=job_call')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success && data.options) {
-                    setJobCalls(data.options);
-                }
-            })
-            .catch((err) => console.warn('Failed to fetch job calls:', err));
-    }, []);
-    const formatDateValue = (val) => {
-        if (!val) return '';
-        if (typeof val === 'string') {
-            const match = val.match(/^\d{4}-\d{2}-\d{2}/);
-            if (match) return match[0];
-        }
-        const d = new Date(val);
-        if (isNaN(d.getTime())) return '';
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const [photoPreview, setPhotoPreview] = useState(profileData?.personal?.photo_path || null);
+    const [departments, setDepartments] = useState([]);
+    const [localDept, setLocalDept] = useState(() => user?.department || '');
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [photoFile, setPhotoFile] = useState(null);
     const [activeOtherField, setActiveOtherField] = useState(null);
 
     const [formData, setFormData] = useState({
-        appliedDate: formatDateValue(profileData?.personal?.applied_date) || formatDateValue(new Date()),
-        post: profileData?.personal?.post || '',
-        postOther: profileData?.personal?.post_other || '',
-        fullName: profileData?.personal?.full_name || '',
-        dob: formatDateValue(profileData?.personal?.dob),
-        age: profileData?.personal?.age || '',
-        fatherName: profileData?.personal?.father_name || '',
-        motherName: profileData?.personal?.mother_name || '',
-        gender: profileData?.personal?.gender || 'Male',
-        genderOther: profileData?.personal?.gender_other || '',
-        bloodGroup: profileData?.personal?.blood_group || 'O+',
-        bloodGroupOther: profileData?.personal?.blood_group_other || '',
-        maritalStatus: profileData?.personal?.marital_status || 'Single',
-        spouseName: profileData?.personal?.spouse_name || '',
-        maritalStatusOther: profileData?.personal?.marital_status_other || '',
-        nationality: profileData?.personal?.nationality || 'Indian',
-        religion: profileData?.personal?.religion || 'Hindu',
-        religionOther: profileData?.personal?.religion_other || '',
-        community: profileData?.personal?.community || 'BC',
-        communityOther: profileData?.personal?.community_other || '',
-        caste: profileData?.personal?.caste || '',
-        email: profileData?.personal?.email || user?.email || '',
-        altEmail: profileData?.personal?.alt_email || '',
-        phone: profileData?.personal?.phone || '',
-        whatsapp: profileData?.personal?.whatsapp || '',
-        emergencyName: profileData?.personal?.emergency_name || '',
-        emergencyRelation: profileData?.personal?.emergency_relation || '',
-        emergencyPhone: profileData?.personal?.emergency_phone || '',
-        aadhaar: profileData?.personal?.aadhaar || '',
-        permanentAddress: profileData?.personal?.permanent_address || '',
-        communicationAddress: profileData?.personal?.communication_address || '',
-        state: profileData?.personal?.state || 'Tamil Nadu',
-        district: profileData?.personal?.district || 'Thoothukudi',
-        pincode: profileData?.personal?.pincode || '',
+        appliedDate: formatDateValue(new Date()),
+        post: 'Assistant Professor',
+        postOther: '',
+        fullName: '',
+        dob: '',
+        age: '',
+        fatherName: '',
+        motherName: '',
+        gender: 'Male',
+        genderOther: '',
+        bloodGroup: 'O+',
+        bloodGroupOther: '',
+        maritalStatus: 'Single',
+        spouseName: '',
+        maritalStatusOther: '',
+        nationality: 'Indian',
+        religion: 'Hindu',
+        religionOther: '',
+        community: 'BC',
+        communityOther: '',
+        caste: '',
+        email: user?.email || '',
+        altEmail: '',
+        phone: '',
+        whatsapp: '',
+        emergencyName: '',
+        emergencyRelation: '',
+        emergencyPhone: '',
+        aadhaar: '',
+        permanentAddress: '',
+        communicationAddress: '',
+        state: 'Tamil Nadu',
+        district: 'Thoothukudi',
+        pincode: '',
     });
 
-    const [photoFile, setPhotoFile] = useState(null);
+    useEffect(() => {
+        fetch('/api/departments')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    setDepartments(data.data.map(d => ({ value: d.code, label: d.name })));
+                }
+            });
+    }, []);
+
+    const hasLoadedRef = useRef(false);
+    const isDirtyRef = useRef(false);
+    const loadedEmailRef = useRef('');
 
     useEffect(() => {
-        if (profileData?.personal) {
+        if (user?.email && loadedEmailRef.current !== user.email) {
+            loadedEmailRef.current = user.email;
+            hasLoadedRef.current = false;
+            isDirtyRef.current = false;
+        }
+
+        const deptVal = profileData?.personal?.department || profileData?.user?.department || user?.department;
+        if (deptVal) {
+            setLocalDept(deptVal);
+        }
+
+        if (profileData?.personal && !hasLoadedRef.current && !isDirtyRef.current) {
             const p = profileData.personal;
+            const sanitize10 = (v) => (v ? String(v).replace(/\D/g, '').slice(0, 10) : '');
+            const sanitize12 = (v) => (v ? String(v).replace(/\D/g, '').slice(0, 12) : '');
+
             setFormData({
                 appliedDate: formatDateValue(p.applied_date) || formatDateValue(new Date()),
                 post: p.post || 'Assistant Professor',
@@ -117,12 +120,12 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
                 caste: p.caste || '',
                 email: p.email || user?.email || '',
                 altEmail: p.alt_email || '',
-                phone: p.phone || '',
-                whatsapp: p.whatsapp || '',
+                phone: sanitize10(p.phone),
+                whatsapp: sanitize10(p.whatsapp),
                 emergencyName: p.emergency_name || '',
                 emergencyRelation: p.emergency_relation || '',
-                emergencyPhone: p.emergency_phone || '',
-                aadhaar: p.aadhaar || '',
+                emergencyPhone: sanitize10(p.emergency_phone),
+                aadhaar: sanitize12(p.aadhaar),
                 permanentAddress: p.permanent_address || '',
                 communicationAddress: p.communication_address || '',
                 state: p.state || 'Tamil Nadu',
@@ -130,15 +133,23 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
                 pincode: p.pincode || '',
             });
             if (p.photo_path) setPhotoPreview(p.photo_path);
+            hasLoadedRef.current = true;
         }
     }, [profileData, user]);
 
     const handleChange = (e) => {
+        isDirtyRef.current = true;
         const { name, value } = e.target;
         setFormData((prev) => {
-            const updated = { ...prev, [name]: value };
-            if (name === 'dob' && value) {
-                const parts = value.split('-');
+            let val = value;
+            if (['phone', 'whatsapp', 'emergencyPhone'].includes(name)) {
+                val = value.replace(/\D/g, '').slice(0, 10);
+            } else if (name === 'aadhaar') {
+                val = value.replace(/\D/g, '').slice(0, 12);
+            }
+            const updated = { ...prev, [name]: val };
+            if (name === 'dob' && val) {
+                const parts = val.split('-');
                 if (parts.length === 3) {
                     const birthDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                     const today = new Date();
@@ -163,13 +174,61 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
         }
     };
 
+    const getPhoneError = (num, isRequired = false) => {
+        if (!num || !num.toString().trim()) return isRequired ? 'Mobile number is required' : '';
+        const digitsOnly = num.toString().replace(/\D/g, '');
+        if (digitsOnly.length === 0) return isRequired ? 'Mobile number is required' : '';
+        if (digitsOnly.length < 10) return 'Must be exactly 10 digits';
+        if (!/^[6-9]/.test(digitsOnly)) return 'Mobile number must start with 6, 7, 8, or 9';
+        return '';
+    };
+
+    const getAadhaarError = (num) => {
+        if (!num || !num.toString().trim()) return '';
+        const digitsOnly = num.toString().replace(/\D/g, '');
+        if (digitsOnly.length === 0) return '';
+        if (digitsOnly.length < 12) return 'Aadhaar Card number must be exactly 12 digits';
+        return '';
+    };
+
     const savePersonalData = async () => {
         setBanner({ type: '', message: '' });
+
+        const scrollToContactError = () => {
+            setTimeout(() => {
+                const el = document.getElementById('sub-contact');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 50);
+        };
+
+        if (!photoPreview && !photoFile) {
+            setBanner({ type: 'error', message: 'Please upload a passport photo before saving.' });
+            return false;
+        }
+
+        const invalidFields = [];
+        if (getPhoneError(formData.phone, true)) invalidFields.push('Mobile Number');
+        if (formData.whatsapp && getPhoneError(formData.whatsapp)) invalidFields.push('WhatsApp Number');
+        if (formData.emergencyPhone && getPhoneError(formData.emergencyPhone)) invalidFields.push('Emergency Contact No');
+        if (formData.aadhaar && getAadhaarError(formData.aadhaar)) invalidFields.push('Aadhaar Card Number');
+
+        if (invalidFields.length > 0) {
+            setBanner({
+                type: 'error',
+                message: `Please correct the highlighted error(s) in: ${invalidFields.join(', ')}.`
+            });
+            scrollToContactError();
+            return false;
+        }
+
         setLoading(true);
 
         try {
             const data = new FormData();
             data.append('user_email', user?.email || '');
+            data.append('department', localDept);
             Object.keys(formData).forEach((key) => {
                 data.append(key, formData[key]);
             });
@@ -184,6 +243,8 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
 
             const result = await res.json();
             if (result.success) {
+                isDirtyRef.current = false;
+                hasLoadedRef.current = true;
                 setBanner({ type: 'success', message: 'Personal details saved successfully!' });
                 if (result.photo_path) setPhotoPreview(result.photo_path);
                 if (onSaveSuccess) onSaveSuccess();
@@ -264,7 +325,6 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
                                     accept="image/*"
                                     onChange={handlePhotoChange}
                                     style={{ display: 'none' }}
-                                    required={!photoPreview && !photoFile}
                                 />
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: (photoFile || photoPreview) ? '#10b981' : 'var(--color-text-muted)' }}>
                                     {photoFile ? photoFile.name : photoPreview ? '✓ Photo Uploaded' : 'No file chosen'}
@@ -278,9 +338,47 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
                         </div>
 
                         <div className="field">
+                            <label>Department <span style={{ color: '#ef4444' }}>*</span></label>
+                            <select
+                                value={localDept}
+                                disabled
+                                style={{ backgroundColor: 'var(--bg-secondary, #f1f5f9)', cursor: 'not-allowed', opacity: 0.8 }}
+                            >
+                                <option value="" disabled>Select Department</option>
+                                {departments.length > 0 ? (
+                                    departments.map(d => (
+                                        <option key={d.id || d.value} value={d.value || d.id}>{d.label || d.name || d.option_label}</option>
+                                    ))
+                                ) : (
+                                    <>
+                                        <option value="IT">Information Technology</option>
+                                        <option value="CSE">Computer Science &amp; Engineering</option>
+                                        <option value="ECE">Electronics &amp; Communication</option>
+                                        <option value="EEE">Electrical &amp; Electronics</option>
+                                        <option value="MECH">Mechanical Engineering</option>
+                                        <option value="CIVIL">Civil Engineering</option>
+                                        <option value="AIDS">AI &amp; Data Science</option>
+                                        <option value="MATHS">Mathematics</option>
+                                        <option value="PHYSICS">Physics</option>
+                                        <option value="CHEMISTRY">Chemistry</option>
+                                        <option value="TAMIL">Tamil</option>
+                                        <option value="ENGLISH">English</option>
+                                    </>
+                                )}
+                            </select>
+                            <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                                🔒 Locked (Department chosen during registration cannot be changed)
+                            </span>
+                        </div>
+
+                        <div className="field">
                             <label>Post Applied For <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="post" value={formData.post} onChange={handleChange} onClick={() => { if (formData.post === 'Other') setActiveOtherField('post'); }} required>
-                                <option value="" disabled>Select post</option>
+                            <select name="post" value={formData.post} onChange={handleChange} onClick={() => { if (formData.post === 'Other') setActiveOtherField('post'); }} disabled={!localDept} required>
+                                {!localDept ? (
+                                    <option value="" disabled>Select Department First</option>
+                                ) : (
+                                    <option value="" disabled>Select post</option>
+                                )}
                                 {posts.length > 0 ? (
                                     posts.map((p, idx) => (
                                         <option key={p.id || idx} value={p.value || p.option_value}>
@@ -488,12 +586,37 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
 
                         <div className="field">
                             <label>Mobile Number <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="10-digit mobile number" required />
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                placeholder="10-digit mobile number"
+                                style={{ borderColor: getPhoneError(formData.phone, true) ? '#ef4444' : '' }}
+                                required
+                            />
+                            {getPhoneError(formData.phone, true) && (
+                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                    ⚠️ {getPhoneError(formData.phone, true)}
+                                </span>
+                            )}
                         </div>
 
                         <div className="field">
                             <label>WhatsApp Number</label>
-                            <input type="tel" name="whatsapp" value={formData.whatsapp} onChange={handleChange} />
+                            <input
+                                type="tel"
+                                name="whatsapp"
+                                value={formData.whatsapp}
+                                onChange={handleChange}
+                                placeholder="10-digit WhatsApp number"
+                                style={{ borderColor: (formData.whatsapp && getPhoneError(formData.whatsapp)) ? '#ef4444' : '' }}
+                            />
+                            {formData.whatsapp && getPhoneError(formData.whatsapp) && (
+                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                    ⚠️ {getPhoneError(formData.whatsapp)}
+                                </span>
+                            )}
                         </div>
 
                         <div className="field">
@@ -503,12 +626,36 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
 
                         <div className="field">
                             <label>Emergency Contact No</label>
-                            <input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange} />
+                            <input
+                                type="tel"
+                                name="emergencyPhone"
+                                value={formData.emergencyPhone}
+                                onChange={handleChange}
+                                placeholder="10-digit emergency contact"
+                                style={{ borderColor: (formData.emergencyPhone && getPhoneError(formData.emergencyPhone)) ? '#ef4444' : '' }}
+                            />
+                            {formData.emergencyPhone && getPhoneError(formData.emergencyPhone) && (
+                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                    ⚠️ {getPhoneError(formData.emergencyPhone)}
+                                </span>
+                            )}
                         </div>
 
                         <div className="field">
                             <label>Aadhaar Card Number</label>
-                            <input type="text" name="aadhaar" value={formData.aadhaar} onChange={handleChange} placeholder="12-digit Aadhaar" />
+                            <input
+                                type="text"
+                                name="aadhaar"
+                                value={formData.aadhaar}
+                                onChange={handleChange}
+                                placeholder="12-digit Aadhaar"
+                                style={{ borderColor: (formData.aadhaar && getAadhaarError(formData.aadhaar)) ? '#ef4444' : '' }}
+                            />
+                            {formData.aadhaar && getAadhaarError(formData.aadhaar) && (
+                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                    ⚠️ {getAadhaarError(formData.aadhaar)}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>

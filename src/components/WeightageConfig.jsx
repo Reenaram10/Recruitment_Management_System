@@ -272,15 +272,20 @@ export function WeightageConfig({ initialCategory }) {
 
                     const isMedium = String(p.candidate_field || '').endsWith('.medium');
                     const isYesNo = ['first_attempt', 'first_class', 'completed', 'funded_projects', 'funded_consultancy', 'funded'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
+                    const isInstitute = ['ug_institute', 'pg_institute', 'mphil_institute', 'institute'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
+
                     const allOptions = isMedium
                         ? ['Tamil', 'English']
                         : isYesNo
                             ? ['Yes', 'No']
-                            : ['Tier 1 / Premier', 'Tier 2 / State Govt', 'Tier 3 / Private'];
+                            : isInstitute
+                                ? ['1-50', '51-100', '101-150', '151-200', '201-300', 'Unranked / Others']
+                                : ['1-50', '51-100', '101-150', '151-200', '201-300', 'Unranked / Others'];
 
+                    const isCategory = p.value_type === 'category' && !isInstitute;
                     const usedValues = rangesList.map((r) => r.category_value).filter(Boolean);
                     const remainingOptions = allOptions.filter((opt) => !usedValues.includes(opt));
-                    const isAllCategoryAdded = p.value_type === 'category' && remainingOptions.length === 0;
+                    const isAllCategoryAdded = isCategory && remainingOptions.length === 0;
 
                     return (
                         <div
@@ -390,11 +395,11 @@ export function WeightageConfig({ initialCategory }) {
                                                     border: '1px solid var(--color-border)'
                                                 }}
                                             >
-                                                {p.value_type === 'category' ? (
+                                                {isCategory ? (
                                                     <select
                                                         value={currentVal}
                                                         onChange={(e) => updateRange(originalIdx, j, { category_value: e.target.value })}
-                                                        style={{ padding: '0.4rem 0.65rem', borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', color: 'var(--color-text-main)', fontWeight: 600, minWidth: '130px' }}
+                                                        style={{ width: '180px', padding: '0.35rem 0.65rem', borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', color: 'var(--color-text-main)', fontWeight: 600 }}
                                                     >
                                                         {allOptions.map((opt) => {
                                                             const isAlreadyUsed = usedValues.includes(opt) && opt !== currentVal;
@@ -459,10 +464,10 @@ export function WeightageConfig({ initialCategory }) {
                                                     ranges: [
                                                         ...rangesList,
                                                         {
-                                                            range_type: p.value_type,
+                                                            range_type: isCategory ? 'category' : 'number',
                                                             min_value: '',
                                                             max_value: '',
-                                                            category_value: p.value_type === 'category' ? nextCategoryVal : '',
+                                                            category_value: isCategory ? nextCategoryVal : '',
                                                             assigned_score: 0,
                                                         },
                                                     ],
@@ -483,7 +488,7 @@ export function WeightageConfig({ initialCategory }) {
                                                 gap: '0.3rem'
                                             }}
                                         >
-                                            <Plus size={14} /> Add {p.value_type === 'category' ? 'Option' : 'Score Range'}
+                                            <Plus size={14} /> Add {isCategory ? 'Option' : 'Score Range'}
                                             {isAllCategoryAdded ? ' (All Added)' : ''}
                                         </button>
 
