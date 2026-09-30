@@ -85,7 +85,7 @@ export function WeightageConfig({ initialCategory }) {
             }
             if (!errorOccurred) {
                 setMessage('All scoring configurations saved successfully!');
-                setTimeout(() => setMessage(''), 3500);
+                setTimeout(() => setMessage(''), 3000);
             } else {
                 setMessage('Some configurations could not be saved.');
             }

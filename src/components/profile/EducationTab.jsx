@@ -137,7 +137,9 @@ const pgSpecializationMap = {
         'Other'
     ],
     'M.A.': [
+        'English',
         'English Literature',
+        'Tamil',
         'Tamil Literature',
         'History',
         'Economics',
@@ -167,82 +169,87 @@ const pgSpecializationMap = {
     'Other': ['Other']
 };
 
-const getDepartmentPgSpecializations = (degree, dept) => {
-    const rawDept = (dept || '').toUpperCase().trim();
+const getDepartmentPgSpecializations = (degree, dept, ugDegree = '', ugSpec = '') => {
+    const uSpec = (ugSpec || '').toLowerCase();
+    const uDeg = (ugDegree || '').toLowerCase();
 
-    const isCseItAids = rawDept.includes('CSE') ||
-        rawDept.includes('IT') ||
-        rawDept.includes('AIDS') ||
-        rawDept.includes('COMPUTER') ||
-        rawDept.includes('INFORMATION TECHNOLOGY') ||
-        rawDept.includes('ARTIFICIAL INTELLIGENCE') ||
-        rawDept.includes('DATA SCIENCE');
+    if (degree === 'M.Sc.') {
+        const mscOptions = [];
 
-    const isEce = rawDept.includes('ECE') ||
-        rawDept.includes('ELECTRONICS') ||
-        rawDept.includes('COMMUNICATION');
+        if (uSpec.includes('physics') || uSpec.includes('applied electronics')) {
+            mscOptions.push('Physics / Applied Electronics', 'Physics', 'Applied Electronics', 'Condensed Matter Physics', 'Materials Science', 'Nanoscience & Nanotechnology');
+        }
+        if (uSpec.includes('chemistry') || uSpec.includes('organic')) {
+            mscOptions.push('Chemistry / Organic Chemistry', 'Chemistry', 'Organic Chemistry', 'Inorganic Chemistry', 'Analytical Chemistry');
+        }
+        if (uSpec.includes('math') || uSpec.includes('stat')) {
+            mscOptions.push('Mathematics / Applied Mathematics', 'Mathematics', 'Applied Mathematics', 'Pure Mathematics', 'Statistics & Probability', 'Operations Research');
+        }
+        if (uSpec.includes('computer') || uSpec.includes('information') || uSpec.includes('data') || uSpec.includes('cyber') || uDeg.includes('b.c.a') || uSpec.includes('software') || uSpec.includes('ai')) {
+            mscOptions.push('Computer Science', 'Information Technology', 'Data Science & Analytics', 'Cyber Security', 'Software Engineering');
+        }
+        if (uSpec.includes('bio')) {
+            mscOptions.push('Biotechnology', 'Bioinformatics');
+        }
 
-    const isEee = rawDept.includes('EEE') ||
-        rawDept.includes('ELECTRICAL');
-
-    const isMech = rawDept.includes('MECH') ||
-        rawDept.includes('MECHANICAL');
-
-    const isCivil = rawDept.includes('CIVIL');
-
-    if (isCseItAids) {
-        return [
-            'Computational Intelligence',
-            'Blockchain Technology',
-            'AR / VR (Augmented & Virtual Reality)',
-            'Full Stack Web Development',
-            'Business Analytics',
-            'Cyber Security & Digital Forensics',
-            'Artificial Intelligence & Machine Learning',
-            'Data Science & Analytics',
-            'Cloud Computing & DevOps',
-            'Computer Science and Engineering',
+        const defaultMsc = [
+            'Computer Science',
             'Information Technology',
+            'Physics / Applied Electronics',
+            'Chemistry / Organic Chemistry',
+            'Mathematics / Applied Mathematics',
+            'Biotechnology',
+            'Data Science & Analytics',
             'Software Engineering',
-            'Computer Applications'
+            'Cyber Security',
+            'Other'
         ];
+
+        return Array.from(new Set([...mscOptions, ...defaultMsc]));
     }
 
-    if (isEce) {
-        return [
-            'Embedded Systems',
-            'VLSI Design',
-            'Communication Systems',
-            'Signal Processing & AI',
-            'Wireless & Mobile Technologies',
-            'Robotics & Automation',
-            'Communication Systems & Signal Processing'
-        ];
+    if (degree === 'M.A.') {
+        return pgSpecializationMap['M.A.'] || ['Other'];
     }
 
-    if (isEee) {
-        return [
-            'Power Electronics & Drives',
-            'Power Systems Engineering',
-            'Renewable Energy Systems',
-            'Electric Vehicle (EV) Technology'
-        ];
+    if (degree === 'M.Com.') {
+        return pgSpecializationMap['M.Com.'] || ['Other'];
     }
 
-    if (isMech) {
-        return [
-            'CAD / CAM & Product Design',
-            'Thermal Engineering',
-            'Mechatronics & Automation'
-        ];
+    if (degree === 'M.C.A.') {
+        return pgSpecializationMap['M.C.A.'] || ['Other'];
     }
 
-    if (isCivil) {
-        return [
-            'Structural Engineering',
-            'Environmental Engineering',
-            'Construction Engineering & Management'
-        ];
+    if (degree === 'M.B.A.') {
+        return pgSpecializationMap['M.B.A.'] || ['Other'];
+    }
+
+    if (degree === 'M.E.' || degree === 'M.Tech.') {
+        const rawDept = (dept || '').toUpperCase().trim();
+        const uSpecUpper = (ugSpec || '').toUpperCase().trim();
+
+        if (rawDept.includes('MECH') || uSpecUpper.includes('MECHANICAL')) {
+            return ['CAD / CAM & Product Design', 'Thermal Engineering', 'Mechatronics & Automation', 'Other'];
+        }
+        if (rawDept.includes('ECE') || uSpecUpper.includes('ELECTRONICS') || uSpecUpper.includes('COMMUNICATION')) {
+            return ['Embedded Systems', 'VLSI Design', 'Communication Systems', 'Signal Processing & AI', 'Wireless & Mobile Technologies', 'Robotics & Automation', 'Other'];
+        }
+        if (rawDept.includes('EEE') || uSpecUpper.includes('ELECTRICAL')) {
+            return ['Power Electronics & Drives', 'Power Systems Engineering', 'Renewable Energy Systems', 'Electric Vehicle (EV) Technology', 'Other'];
+        }
+        if (rawDept.includes('CIVIL') || uSpecUpper.includes('CIVIL')) {
+            return ['Structural Engineering', 'Environmental Engineering', 'Construction Engineering & Management', 'Other'];
+        }
+        if (rawDept.includes('CSE') || rawDept.includes('IT') || rawDept.includes('AIDS') || uSpecUpper.includes('COMPUTER')) {
+            return [
+                'Computational Intelligence', 'Blockchain Technology', 'AR / VR (Augmented & Virtual Reality)',
+                'Full Stack Web Development', 'Business Analytics', 'Cyber Security & Digital Forensics',
+                'Artificial Intelligence & Machine Learning', 'Data Science & Analytics', 'Cloud Computing & DevOps',
+                'Computer Science and Engineering', 'Information Technology', 'Software Engineering', 'Other'
+            ];
+        }
+
+        return pgSpecializationMap[degree] || ['Other'];
     }
 
     return pgSpecializationMap[degree] || ['Other'];
@@ -256,7 +263,7 @@ const generateYearOptions = (startYear = 1960, endYear = new Date().getFullYear(
     return years;
 };
 
-export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => {
+export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, onPrev }) => {
     const { user } = useAuth();
     const formRef = useRef(null);
     const [banner, setBanner] = useState({ type: '', message: '' });
@@ -265,8 +272,25 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
     const hasLoadedRef = useRef(false);
     const isDirtyRef = useRef(false);
     const [collegesList, setCollegesList] = useState([]);
+    const [engineeringCollegesList, setEngineeringCollegesList] = useState([]);
+    const [artsCollegesList, setArtsCollegesList] = useState([]);
+    const [universitiesList, setUniversitiesList] = useState([]);
     const [files, setFiles] = useState({});
     const [dynamicPgDomains, setDynamicPgDomains] = useState([]);
+
+    const getInstitutionsForDegree = (degree) => {
+        const d = (degree || '').trim();
+        const artsDegrees = ['B.Sc.', 'B.A.', 'B.Com.', 'B.C.A.', 'M.Sc.', 'M.A.', 'M.Com.', 'M.C.A.', 'M.B.A.', 'M.Phil'];
+        const engDegrees = ['B.E.', 'B.Tech.', 'M.E.', 'M.Tech.'];
+
+        if (artsDegrees.includes(d)) {
+            return artsCollegesList.length > 0 ? artsCollegesList : collegesList;
+        }
+        if (engDegrees.includes(d)) {
+            return engineeringCollegesList.length > 0 ? engineeringCollegesList : collegesList;
+        }
+        return collegesList;
+    };
 
     const [edu, setEdu] = useState({
         // 10th
@@ -277,7 +301,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         tenthMediumOther: '',
         tenthAttempt: 'Yes',
         tenthClass: 'Yes',
+        tenthUniversity: '',
+        tenthUniversityOther: '',
         tenthInstitution: '',
+        tenthInstitutionOther: '',
 
         // 12th
         twelfthNA: false,
@@ -287,7 +314,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         twelfthMediumOther: '',
         twelfthAttempt: 'Yes',
         twelfthClass: 'Yes',
+        twelfthUniversity: '',
+        twelfthUniversityOther: '',
         twelfthInstitution: '',
+        twelfthInstitutionOther: '',
 
         // UG
         ugNA: false,
@@ -299,6 +329,8 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         ugYear: '',
         ugAttempt: 'Yes',
         ugClass: 'Yes',
+        ugUniversity: '',
+        ugUniversityOther: '',
         ugInstitution: '',
         ugInstitutionOther: '',
         ugGateScore: '',
@@ -314,6 +346,8 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         pgYear: '',
         pgAttempt: 'Yes',
         pgClass: 'Yes',
+        pgUniversity: '',
+        pgUniversityOther: '',
         pgInstitution: '',
         pgInstitutionOther: '',
 
@@ -325,6 +359,8 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         mphilYear: '',
         mphilAttempt: 'Yes',
         mphilClass: 'Yes',
+        mphilUniversity: '',
+        mphilUniversityOther: '',
         mphilInstitution: '',
         mphilInstitutionOther: '',
 
@@ -332,6 +368,8 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         phdNA: true,
         phdStatus: 'Completed',
         phdTopic: '',
+        phdUniversity: '',
+        phdUniversityOther: '',
         phdInstitution: '',
         phdInstitutionOther: '',
         phdGuideName: '',
@@ -347,14 +385,35 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
     });
 
     useEffect(() => {
-        fetch('/api/institutions')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.institutions) {
-                    setCollegesList(data.institutions);
+        Promise.all([
+            fetch('/api/universities').then(res => res.json()).catch(() => ({ success: false })),
+            fetch('/api/institutions').then(res => res.json()).catch(() => ({ success: false })),
+            fetch('/api/schools').then(res => res.json()).catch(() => ({ success: false }))
+        ]).then(([uniData, instData, schoolData]) => {
+            if (uniData.success && uniData.data) {
+                setUniversitiesList(uniData.data);
+            }
+            if (instData.success) {
+                if (instData.engineering && instData.engineering.length > 0) {
+                    setEngineeringCollegesList(instData.engineering);
                 }
-            })
-            .catch(err => console.warn('Failed to fetch institutions:', err));
+                if (instData.arts && instData.arts.length > 0) {
+                    setArtsCollegesList(instData.arts);
+                }
+            }
+            let combined = [];
+            if (instData.success && instData.institutions) {
+                combined = [...combined, ...instData.institutions];
+            }
+            if (schoolData.success && schoolData.schools) {
+                const schoolNames = schoolData.schools.map(s => s.full_display || s.school_name);
+                combined = [...combined, ...schoolNames];
+            }
+            const uniqueSorted = Array.from(new Set(combined)).sort();
+            if (uniqueSorted.length > 0) {
+                setCollegesList(uniqueSorted);
+            }
+        }).catch(err => console.warn('Failed to fetch dropdown datasets:', err));
     }, []);
 
     useEffect(() => {
@@ -401,7 +460,12 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
             const ugSpecOther = ugIsCustom ? ug.specialization : (ug.specialization_other || '');
 
             const pgDeg = pg.degree || 'M.E.';
-            const pgOpts = pgSpecializationMap[pgDeg] || ['Other'];
+            const userDept = profileData?.user?.department || user?.department || '';
+            const pgOpts = Array.from(new Set([
+                ...getDepartmentPgSpecializations(pgDeg, userDept),
+                ...(pgSpecializationMap[pgDeg] || []),
+                'Other'
+            ]));
             const pgIsCustom = pg.specialization && !pgOpts.includes(pg.specialization);
             const pgSpec = pgIsCustom ? 'Other' : (pg.specialization || pgOpts[0]);
             const pgSpecOther = pgIsCustom ? pg.specialization : (pg.specialization_other || '');
@@ -414,7 +478,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
                 tenthMedium: tenth.medium || 'Tamil',
                 tenthAttempt: tenth.first_attempt || 'Yes',
                 tenthClass: tenth.first_class || 'Yes',
-                tenthInstitution: tenth.institution_name || '',
+                tenthUniversity: tenth.university_name || tenth.university_other || '',
+                tenthUniversityOther: tenth.university_other || '',
+                tenthInstitution: tenth.institution_name || tenth.institution_other || '',
+                tenthInstitutionOther: tenth.institution_other || '',
 
                 twelfthNA: twelfth.is_na === 1,
                 twelfthPercentage: twelfth.percentage || '',
@@ -422,7 +489,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
                 twelfthMedium: twelfth.medium || 'Tamil',
                 twelfthAttempt: twelfth.first_attempt || 'Yes',
                 twelfthClass: twelfth.first_class || 'Yes',
-                twelfthInstitution: twelfth.institution_name || '',
+                twelfthUniversity: twelfth.university_name || twelfth.university_other || '',
+                twelfthUniversityOther: twelfth.university_other || '',
+                twelfthInstitution: twelfth.institution_name || twelfth.institution_other || '',
+                twelfthInstitutionOther: twelfth.institution_other || '',
 
                 ugNA: ug.is_na === 1,
                 ugDegree: ugDeg,
@@ -432,7 +502,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
                 ugYear: ug.year_of_passing || '',
                 ugAttempt: ug.first_attempt || 'Yes',
                 ugClass: ug.first_class || 'Yes',
+                ugUniversity: ug.university_name || ug.university_other || '',
+                ugUniversityOther: ug.university_other || '',
                 ugInstitution: ug.institution_name || ug.institution_other || '',
+                ugInstitutionOther: ug.institution_other || '',
                 ugGateScore: ug.ug_gate_score || '',
                 ugNetSletScore: ug.ug_net_slet_score || '',
 
@@ -444,7 +517,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
                 pgYear: pg.year_of_passing || '',
                 pgAttempt: pg.first_attempt || 'Yes',
                 pgClass: pg.first_class || 'Yes',
+                pgUniversity: pg.university_name || pg.university_other || '',
+                pgUniversityOther: pg.university_other || '',
                 pgInstitution: pg.institution_name || pg.institution_other || '',
+                pgInstitutionOther: pg.institution_other || '',
 
                 mphilNA: mphil.is_na !== undefined ? mphil.is_na === 1 : true,
                 mphilDegree: mphil.degree || 'M.Phil',
@@ -453,12 +529,18 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
                 mphilYear: mphil.year_of_passing || '',
                 mphilAttempt: mphil.first_attempt || 'Yes',
                 mphilClass: mphil.first_class || 'Yes',
+                mphilUniversity: mphil.university_name || mphil.university_other || '',
+                mphilUniversityOther: mphil.university_other || '',
                 mphilInstitution: mphil.institution_name || mphil.institution_other || '',
+                mphilInstitutionOther: mphil.institution_other || '',
 
                 phdNA: phd.is_na !== undefined ? phd.is_na === 1 : true,
                 phdStatus: phdDet.status || 'Completed',
                 phdTopic: phdDet.title || phd.topic || '',
-                phdInstitution: phdDet.university || phd.institution_name || phd.institution_other || '',
+                phdUniversity: phdDet.university || phd.university_name || phd.university_other || '',
+                phdUniversityOther: phd.university_other || '',
+                phdInstitution: phd.institution_name || phd.institution_other || '',
+                phdInstitutionOther: phd.institution_other || '',
                 phdGuideName: phdDet.guide_name || '',
                 phdGuideCollege: phdDet.guide_college || '',
                 phdYearRegistration: phdDet.year_of_registration || '',
@@ -507,8 +589,28 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
         }
     };
 
+    const [wasValidated, setWasValidated] = useState(false);
+
+    const scrollToFirstInvalid = () => {
+        setTimeout(() => {
+            const firstInvalid = formRef.current?.querySelector(':invalid, .is-invalid');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (typeof firstInvalid.focus === 'function') firstInvalid.focus();
+            }
+        }, 50);
+    };
+
     const saveEducationData = async () => {
         setBanner({ type: '', message: '' });
+        setWasValidated(true);
+
+        if (formRef.current && !formRef.current.checkValidity()) {
+            setBanner({ type: 'error', message: 'Please fill out all mandatory educational fields highlighted in red.' });
+            scrollToFirstInvalid();
+            return false;
+        }
+
         setLoading(true);
 
         try {
@@ -559,8 +661,10 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
     };
 
     const handleNextClick = async () => {
-        if (formRef.current && !formRef.current.reportValidity()) {
-            setBanner({ type: 'error', message: 'Please fill out all mandatory educational fields before advancing.' });
+        setWasValidated(true);
+        if (formRef.current && !formRef.current.checkValidity()) {
+            setBanner({ type: 'error', message: 'Please fill out all mandatory educational fields highlighted in red before advancing.' });
+            scrollToFirstInvalid();
             return;
         }
         const saved = await saveEducationData();
@@ -571,705 +675,795 @@ export const EducationTab = ({ profileData, onSaveSuccess, onNext, onPrev }) => 
 
     return (
         <div>
-            <Banner type={banner.type} message={banner.message} />
+            <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
 
-            <form ref={formRef} onSubmit={handleSubmit}>
-                {/* 10th Standard Block */}
-                <div id="sub-sslc" className="section-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }} className="section-card-header">
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <GraduationCap size={20} color="#3b82f6" /> 10th Standard (SSLC)
-                        </span>
-                        <label style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 500 }}>
-                            <input type="checkbox" name="tenthNA" checked={edu.tenthNA} onChange={handleChange} /> Not Applicable
-                        </label>
-                    </div>
+            <form ref={formRef} className={wasValidated ? 'was-validated' : ''} onSubmit={handleSubmit} noValidate>
+                <fieldset disabled={isSubmitted} style={{ border: 'none', padding: 0, margin: 0 }}>
+                    {/* 10th Standard Block */}
+                    <div id="sub-sslc" className="section-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }} className="section-card-header">
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <GraduationCap size={20} color="#3b82f6" /> 10th Standard (SSLC)
+                            </span>
+                            <label style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 500 }}>
+                                <input type="checkbox" name="tenthNA" checked={edu.tenthNA} onChange={handleChange} /> Not Applicable
+                            </label>
+                        </div>
 
-                    {!edu.tenthNA && (
-                        <>
-                            <div className="grid-2">
-                                <div className="field">
-                                    <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="number" step="0.01" name="tenthPercentage" value={edu.tenthPercentage} onChange={handleChange} required />
-                                </div>
-                                <div className="field">
-                                    <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="tenthYear" value={edu.tenthYear} onChange={handleChange} required>
-                                        <option value="" disabled>Select Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="tenthAttempt" value={edu.tenthAttempt} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="tenthClass" value={edu.tenthClass} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>Medium of Instruction</label>
-                                    <select name="tenthMedium" value={edu.tenthMedium} onChange={handleChange} onClick={() => { if (edu.tenthMedium === 'Other') setActiveOtherField('tenthMedium'); }}>
-                                        <option value="Tamil">Tamil</option>
-                                        <option value="English">English</option>
-                                        <option value="Other">{edu.tenthMediumOther || 'Other'}</option>
-                                    </select>
-                                    {edu.tenthMedium === 'Other' && (activeOtherField === 'tenthMedium' || !edu.tenthMediumOther) && (
+                        {!edu.tenthNA && (
+                            <>
+                                <div className="grid-2">
+                                    <div className="field">
+                                        <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="number" step="0.01" name="tenthPercentage" value={edu.tenthPercentage} onChange={handleChange} required />
+                                    </div>
+                                    <div className="field">
+                                        <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="tenthYear" value={edu.tenthYear} onChange={handleChange} required>
+                                            <option value="" disabled>Select Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="tenthAttempt" value={edu.tenthAttempt} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="tenthClass" value={edu.tenthClass} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>Medium of Instruction</label>
+                                        <select name="tenthMedium" value={edu.tenthMedium} onChange={handleChange} onClick={() => { if (edu.tenthMedium === 'Other') setActiveOtherField('tenthMedium'); }}>
+                                            <option value="Tamil">Tamil</option>
+                                            <option value="English">English</option>
+                                            <option value="Other">{edu.tenthMediumOther || 'Other'}</option>
+                                        </select>
+                                        {edu.tenthMedium === 'Other' && (activeOtherField === 'tenthMedium' || !edu.tenthMediumOther) && (
+                                            <input
+                                                type="text"
+                                                name="tenthMediumOther"
+                                                value={edu.tenthMediumOther || ''}
+                                                onChange={handleChange}
+                                                onBlur={() => { if (edu.tenthMediumOther?.trim()) setActiveOtherField(null); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                                placeholder="Type custom medium..."
+                                                className="select-other-input"
+                                                autoFocus
+                                                required
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="field">
+                                        <label>Board / University Name <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input
                                             type="text"
-                                            name="tenthMediumOther"
-                                            value={edu.tenthMediumOther || ''}
+                                            name="tenthUniversity"
+                                            value={edu.tenthUniversity || ''}
                                             onChange={handleChange}
-                                            onBlur={() => { if (edu.tenthMediumOther?.trim()) setActiveOtherField(null); }}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                            placeholder="Type custom medium..."
-                                            className="select-other-input"
-                                            autoFocus
+                                            placeholder="Enter Board / University Name"
                                             required
                                         />
-                                    )}
-                                </div>
-                                <div className="field">
-                                    <label>School Name &amp; Location <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input
-                                        type="text"
-                                        name="tenthInstitution"
-                                        value={edu.tenthInstitution}
-                                        onChange={handleChange}
-                                        placeholder="Enter School Name & Location"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="field" style={{ marginTop: '1rem' }}>
-                                <label>10th Marksheet Upload (Optional)</label>
-                                <input type="file" onChange={(e) => handleFileChange(e, 'tenthDoc')} accept=".pdf,image/*" />
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* 12th Standard Block */}
-                <div id="sub-hsc" className="section-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>12th Standard / HSC / Diploma</h3>
-                        <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                            <input type="checkbox" name="twelfthNA" checked={edu.twelfthNA} onChange={handleChange} /> Not Applicable
-                        </label>
-                    </div>
-
-                    {!edu.twelfthNA && (
-                        <>
-                            <div className="grid-2">
-                                <div className="field">
-                                    <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="number" step="0.01" name="twelfthPercentage" value={edu.twelfthPercentage} onChange={handleChange} required />
-                                </div>
-                                <div className="field">
-                                    <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="twelfthYear" value={edu.twelfthYear} onChange={handleChange} required>
-                                        <option value="" disabled>Select Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="twelfthAttempt" value={edu.twelfthAttempt} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="twelfthClass" value={edu.twelfthClass} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label>Medium of Instruction</label>
-                                    <select name="twelfthMedium" value={edu.twelfthMedium} onChange={handleChange} onClick={() => { if (edu.twelfthMedium === 'Other') setActiveOtherField('twelfthMedium'); }}>
-                                        <option value="Tamil">Tamil</option>
-                                        <option value="English">English</option>
-                                        <option value="Other">{edu.twelfthMediumOther || 'Other'}</option>
-                                    </select>
-                                    {edu.twelfthMedium === 'Other' && (activeOtherField === 'twelfthMedium' || !edu.twelfthMediumOther) && (
+                                    </div>
+                                    <div className="field">
+                                        <label>School / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input
                                             type="text"
-                                            name="twelfthMediumOther"
-                                            value={edu.twelfthMediumOther || ''}
+                                            name="tenthInstitution"
+                                            value={edu.tenthInstitution || ''}
                                             onChange={handleChange}
-                                            onBlur={() => { if (edu.twelfthMediumOther?.trim()) setActiveOtherField(null); }}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                            placeholder="Type custom medium..."
-                                            className="select-other-input"
-                                            autoFocus
+                                            placeholder="Enter School / Institution Name"
                                             required
                                         />
-                                    )}
+                                    </div>
                                 </div>
-                                <div className="field">
-                                    <label>School / Polytechnic Institute Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input
-                                        type="text"
-                                        name="twelfthInstitution"
-                                        value={edu.twelfthInstitution}
-                                        onChange={handleChange}
-                                        placeholder="Enter School / Institution Name"
-                                        required
-                                    />
+
+                                <div className="field" style={{ marginTop: '1rem' }}>
+                                    <label>10th Marksheet Upload (Optional)</label>
+                                    <input type="file" onChange={(e) => handleFileChange(e, 'tenthDoc')} accept=".pdf,image/*" />
                                 </div>
-                            </div>
-
-                            <div className="field" style={{ marginTop: '1rem' }}>
-                                <label>12th / Diploma Marksheet Upload (Optional)</label>
-                                <input type="file" onChange={(e) => handleFileChange(e, 'twelfthDoc')} accept=".pdf,image/*" />
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* UG Degree Block */}
-                <div id="sub-ug" className="section-card">
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)', marginBottom: '1rem' }}>Undergraduate (UG) Degree</h3>
-                    <div className="grid-2">
-                        <div className="field">
-                            <label>Degree <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="ugDegree" value={edu.ugDegree} onChange={handleChange} onClick={() => { if (edu.ugDegree === 'Other') setActiveOtherField('ugDegree'); }} required>
-                                <option value="B.E.">B.E.</option>
-                                <option value="B.Tech.">B.Tech.</option>
-                                <option value="B.Sc.">B.Sc.</option>
-                                <option value="B.A.">B.A.</option>
-                                <option value="B.Com.">B.Com.</option>
-                                <option value="B.C.A.">B.C.A.</option>
-                                <option value="Other">{edu.ugDegreeOther || 'Other'}</option>
-                            </select>
-                            {edu.ugDegree === 'Other' && (activeOtherField === 'ugDegree' || !edu.ugDegreeOther) && (
-                                <input
-                                    type="text"
-                                    name="ugDegreeOther"
-                                    value={edu.ugDegreeOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (edu.ugDegreeOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom degree..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Branch / Specialization <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="ugSpecialization" value={edu.ugSpecialization} onChange={handleChange} onClick={() => { if (edu.ugSpecialization === 'Other') setActiveOtherField('ugSpecialization'); }} required>
-                                {(ugSpecializationMap[edu.ugDegree] || ['Other']).map((spec, idx) => (
-                                    <option key={idx} value={spec}>
-                                        {spec === 'Other' && edu.ugSpecializationOther ? edu.ugSpecializationOther : spec}
-                                    </option>
-                                ))}
-                            </select>
-                            {edu.ugSpecialization === 'Other' && (activeOtherField === 'ugSpecialization' || !edu.ugSpecializationOther) && (
-                                <input
-                                    type="text"
-                                    name="ugSpecializationOther"
-                                    value={edu.ugSpecializationOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (edu.ugSpecializationOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom specialization..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="number" step="0.01" name="ugPercentage" value={edu.ugPercentage} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="ugYear" value={edu.ugYear} onChange={handleChange} required>
-                                <option value="" disabled>Select Year</option>
-                                {generateYearOptions().map(y => (
-                                    <option key={y} value={y}>{y}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="field">
-                            <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="ugAttempt" value={edu.ugAttempt} onChange={handleChange} required>
-                                <option value="Yes">Yes</option>
-                                <option value="No">No</option>
-                            </select>
-                        </div>
-
-                        <div className="field">
-                            <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="ugClass" value={edu.ugClass} onChange={handleChange} required>
-                                <option value="Yes">Yes</option>
-                                <option value="No">No</option>
-                            </select>
-                        </div>
-
-                        <div className="field">
-                            <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select
-                                name="ugInstitutionSelect"
-                                value={collegesList.includes(edu.ugInstitution) ? edu.ugInstitution : (edu.ugInstitution ? 'Other' : '')}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setEdu(prev => ({
-                                        ...prev,
-                                        ugInstitution: val === 'Other' ? (prev.ugInstitutionOther || '') : val
-                                    }));
-                                    if (val === 'Other') setActiveOtherField('ugInstitution');
-                                }}
-                                required
-                            >
-                                <option value="" disabled>Select College / Institution</option>
-                                {collegesList.map((c, idx) => (
-                                    <option key={idx} value={c}>{c}</option>
-                                ))}
-                                <option value="Other">Other (Custom College Name)</option>
-                            </select>
-                            {(!collegesList.includes(edu.ugInstitution) || activeOtherField === 'ugInstitution') && (
-                                <input
-                                    type="text"
-                                    name="ugInstitutionOther"
-                                    value={edu.ugInstitutionOther || (collegesList.includes(edu.ugInstitution) ? '' : edu.ugInstitution)}
-                                    onChange={(e) => {
-                                        const customVal = e.target.value;
-                                        setEdu(prev => ({ ...prev, ugInstitutionOther: customVal, ugInstitution: customVal }));
-                                    }}
-                                    placeholder="Enter Custom College / Institution Name"
-                                    className="select-other-input"
-                                    style={{ marginTop: '0.5rem' }}
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        {['B.E.', 'B.Tech.'].includes(edu.ugDegree) ? (
-                            <div className="field">
-                                <label>GATE Score (if applicable)</label>
-                                <input type="text" name="ugGateScore" value={edu.ugGateScore} onChange={handleChange} placeholder="e.g. 650" />
-                            </div>
-                        ) : (
-                            <div className="field">
-                                <label>NET / SLET Score (if applicable)</label>
-                                <input type="text" name="ugNetSletScore" value={edu.ugNetSletScore} onChange={handleChange} placeholder="e.g. Qualified 2023" />
-                            </div>
+                            </>
                         )}
                     </div>
 
-                    <div className="field" style={{ marginTop: '1rem' }}>
-                        <label>UG Degree Certificate Upload (Optional)</label>
-                        <input type="file" onChange={(e) => handleFileChange(e, 'ugDoc')} accept=".pdf,image/*" />
-                    </div>
-                </div>
+                    {/* 12th Standard Block */}
+                    <div id="sub-hsc" className="section-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>12th Standard / HSC / Diploma</h3>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <input type="checkbox" name="twelfthNA" checked={edu.twelfthNA} onChange={handleChange} /> Not Applicable
+                            </label>
+                        </div>
 
-                {/* PG Degree Block */}
-                <div id="sub-pg" className="section-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>Postgraduate (PG) Degree</h3>
-                        <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                            <input type="checkbox" name="pgNA" checked={edu.pgNA} onChange={handleChange} /> Not Applicable
-                        </label>
-                    </div>
-
-                    {!edu.pgNA && (
-                        <>
-                            <div className="grid-2">
-                                <div className="field">
-                                    <label>Degree <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="pgDegree" value={edu.pgDegree} onChange={handleChange} onClick={() => { if (edu.pgDegree === 'Other') setActiveOtherField('pgDegree'); }} required>
-                                        <option value="M.E.">M.E.</option>
-                                        <option value="M.Tech.">M.Tech.</option>
-                                        <option value="M.Sc.">M.Sc.</option>
-                                        <option value="M.A.">M.A.</option>
-                                        <option value="M.Com.">M.Com.</option>
-                                        <option value="M.C.A.">M.C.A.</option>
-                                        <option value="M.B.A.">M.B.A.</option>
-                                        <option value="Other">{edu.pgDegreeOther || 'Other'}</option>
-                                    </select>
-                                    {edu.pgDegree === 'Other' && (activeOtherField === 'pgDegree' || !edu.pgDegreeOther) && (
+                        {!edu.twelfthNA && (
+                            <>
+                                <div className="grid-2">
+                                    <div className="field">
+                                        <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="number" step="0.01" name="twelfthPercentage" value={edu.twelfthPercentage} onChange={handleChange} required />
+                                    </div>
+                                    <div className="field">
+                                        <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="twelfthYear" value={edu.twelfthYear} onChange={handleChange} required>
+                                            <option value="" disabled>Select Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="twelfthAttempt" value={edu.twelfthAttempt} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="twelfthClass" value={edu.twelfthClass} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label>Medium of Instruction</label>
+                                        <select name="twelfthMedium" value={edu.twelfthMedium} onChange={handleChange} onClick={() => { if (edu.twelfthMedium === 'Other') setActiveOtherField('twelfthMedium'); }}>
+                                            <option value="Tamil">Tamil</option>
+                                            <option value="English">English</option>
+                                            <option value="Other">{edu.twelfthMediumOther || 'Other'}</option>
+                                        </select>
+                                        {edu.twelfthMedium === 'Other' && (activeOtherField === 'twelfthMedium' || !edu.twelfthMediumOther) && (
+                                            <input
+                                                type="text"
+                                                name="twelfthMediumOther"
+                                                value={edu.twelfthMediumOther || ''}
+                                                onChange={handleChange}
+                                                onBlur={() => { if (edu.twelfthMediumOther?.trim()) setActiveOtherField(null); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                                placeholder="Type custom medium..."
+                                                className="select-other-input"
+                                                autoFocus
+                                                required
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="field">
+                                        <label>Board / University Name <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input
                                             type="text"
-                                            name="pgDegreeOther"
-                                            value={edu.pgDegreeOther || ''}
+                                            name="twelfthUniversity"
+                                            value={edu.twelfthUniversity || ''}
                                             onChange={handleChange}
-                                            onBlur={() => { if (edu.pgDegreeOther?.trim()) setActiveOtherField(null); }}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                            placeholder="Type custom degree..."
-                                            className="select-other-input"
-                                            autoFocus
+                                            placeholder="Enter Board / University Name"
                                             required
                                         />
-                                    )}
-                                </div>
-
-                                <div className="field">
-                                    <label>Branch / Specialization <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="pgSpecialization" value={edu.pgSpecialization} onChange={handleChange} onClick={() => { if (edu.pgSpecialization === 'Other') setActiveOtherField('pgSpecialization'); }} required>
-                                        {Array.from(new Set([
-                                            ...getDepartmentPgSpecializations(edu.pgDegree, profileData?.user?.department || user?.department || ''),
-                                            ...(dynamicPgDomains.length > 0 ? dynamicPgDomains : []),
-                                            'Other'
-                                        ])).map((spec, idx) => (
-                                            <option key={idx} value={spec}>
-                                                {spec === 'Other' && edu.pgSpecializationOther ? edu.pgSpecializationOther : spec}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {edu.pgSpecialization === 'Other' && (activeOtherField === 'pgSpecialization' || !edu.pgSpecializationOther) && (
+                                    </div>
+                                    <div className="field">
+                                        <label>School / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input
                                             type="text"
-                                            name="pgSpecializationOther"
-                                            value={edu.pgSpecializationOther || ''}
+                                            name="twelfthInstitution"
+                                            value={edu.twelfthInstitution || ''}
                                             onChange={handleChange}
-                                            onBlur={() => { if (edu.pgSpecializationOther?.trim()) setActiveOtherField(null); }}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                            placeholder="Type custom specialization..."
-                                            className="select-other-input"
-                                            autoFocus
+                                            placeholder="Enter School / Institution Name"
                                             required
                                         />
-                                    )}
+                                    </div>
                                 </div>
 
-                                <div className="field">
-                                    <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="number" step="0.01" name="pgPercentage" value={edu.pgPercentage} onChange={handleChange} required />
+                                <div className="field" style={{ marginTop: '1rem' }}>
+                                    <label>12th / Diploma Marksheet Upload (Optional)</label>
+                                    <input type="file" onChange={(e) => handleFileChange(e, 'twelfthDoc')} accept=".pdf,image/*" />
                                 </div>
-
-                                <div className="field">
-                                    <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="pgYear" value={edu.pgYear} onChange={handleChange} required>
-                                        <option value="" disabled>Select Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="pgAttempt" value={edu.pgAttempt} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="pgClass" value={edu.pgClass} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-
-                                <div className="field" style={{ gridColumn: 'span 2' }}>
-                                    <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select
-                                        name="pgInstitutionSelect"
-                                        value={collegesList.includes(edu.pgInstitution) ? edu.pgInstitution : (edu.pgInstitution ? 'Other' : '')}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setEdu(prev => ({
-                                                ...prev,
-                                                pgInstitution: val === 'Other' ? (prev.pgInstitutionOther || '') : val
-                                            }));
-                                            if (val === 'Other') setActiveOtherField('pgInstitution');
-                                        }}
-                                        required
-                                    >
-                                        <option value="" disabled>Select College / Institution</option>
-                                        {collegesList.map((c, idx) => (
-                                            <option key={idx} value={c}>{c}</option>
-                                        ))}
-                                        <option value="Other">Other (Custom College Name)</option>
-                                    </select>
-                                    {(!collegesList.includes(edu.pgInstitution) || activeOtherField === 'pgInstitution') && (
-                                        <input
-                                            type="text"
-                                            name="pgInstitutionOther"
-                                            value={edu.pgInstitutionOther || (collegesList.includes(edu.pgInstitution) ? '' : edu.pgInstitution)}
-                                            onChange={(e) => {
-                                                const customVal = e.target.value;
-                                                setEdu(prev => ({ ...prev, pgInstitutionOther: customVal, pgInstitution: customVal }));
-                                            }}
-                                            placeholder="Enter Custom College / Institution Name"
-                                            className="select-other-input"
-                                            style={{ marginTop: '0.5rem' }}
-                                            required
-                                        />
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="field" style={{ marginTop: '1rem' }}>
-                                <label>PG Degree Certificate Upload (Optional)</label>
-                                <input type="file" onChange={(e) => handleFileChange(e, 'pgDoc')} accept=".pdf,image/*" />
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* M.Phil Degree Block */}
-                <div id="sub-mphil" className="section-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>M.Phil Degree</h3>
-                        <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                            <input type="checkbox" name="mphilNA" checked={edu.mphilNA} onChange={handleChange} /> Not Applicable
-                        </label>
+                            </>
+                        )}
                     </div>
 
-                    {!edu.mphilNA && (
-                        <>
-                            <div className="grid-2">
-                                <div className="field">
-                                    <label>Specialization <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="text" name="mphilSpecialization" value={edu.mphilSpecialization} onChange={handleChange} placeholder="e.g. Physics, Chemistry..." required />
-                                </div>
-
-                                <div className="field">
-                                    <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="number" step="0.01" name="mphilPercentage" value={edu.mphilPercentage} onChange={handleChange} required />
-                                </div>
-
-                                <div className="field">
-                                    <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="mphilYear" value={edu.mphilYear} onChange={handleChange} required>
-                                        <option value="" disabled>Select Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="mphilAttempt" value={edu.mphilAttempt} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select name="mphilClass" value={edu.mphilClass} onChange={handleChange} required>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-
-                                <div className="field" style={{ gridColumn: 'span 2' }}>
-                                    <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select
-                                        name="mphilInstitutionSelect"
-                                        value={collegesList.includes(edu.mphilInstitution) ? edu.mphilInstitution : (edu.mphilInstitution ? 'Other' : '')}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setEdu(prev => ({
-                                                ...prev,
-                                                mphilInstitution: val === 'Other' ? (prev.mphilInstitutionOther || '') : val
-                                            }));
-                                            if (val === 'Other') setActiveOtherField('mphilInstitution');
-                                        }}
+                    {/* UG Degree Block */}
+                    <div id="sub-ug" className="section-card">
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)', marginBottom: '1rem' }}>Undergraduate (UG) Degree</h3>
+                        <div className="grid-2">
+                            <div className="field">
+                                <label>Degree <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="ugDegree" value={edu.ugDegree} onChange={handleChange} onClick={() => { if (edu.ugDegree === 'Other') setActiveOtherField('ugDegree'); }} required>
+                                    <option value="B.E.">B.E.</option>
+                                    <option value="B.Tech.">B.Tech.</option>
+                                    <option value="B.Sc.">B.Sc.</option>
+                                    <option value="B.A.">B.A.</option>
+                                    <option value="B.Com.">B.Com.</option>
+                                    <option value="B.C.A.">B.C.A.</option>
+                                    <option value="Other">{edu.ugDegreeOther || 'Other'}</option>
+                                </select>
+                                {edu.ugDegree === 'Other' && (activeOtherField === 'ugDegree' || !edu.ugDegreeOther) && (
+                                    <input
+                                        type="text"
+                                        name="ugDegreeOther"
+                                        value={edu.ugDegreeOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (edu.ugDegreeOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom degree..."
+                                        className="select-other-input"
+                                        autoFocus
                                         required
-                                    >
-                                        <option value="" disabled>Select College / Institution</option>
-                                        {collegesList.map((c, idx) => (
-                                            <option key={idx} value={c}>{c}</option>
-                                        ))}
-                                        <option value="Other">Other (Custom College Name)</option>
-                                    </select>
-                                    {(!collegesList.includes(edu.mphilInstitution) || activeOtherField === 'mphilInstitution') && (
-                                        <input
-                                            type="text"
-                                            name="mphilInstitutionOther"
-                                            value={edu.mphilInstitutionOther || (collegesList.includes(edu.mphilInstitution) ? '' : edu.mphilInstitution)}
-                                            onChange={(e) => {
-                                                const customVal = e.target.value;
-                                                setEdu(prev => ({ ...prev, mphilInstitutionOther: customVal, mphilInstitution: customVal }));
-                                            }}
-                                            placeholder="Enter Custom College / Institution Name"
-                                            className="select-other-input"
-                                            style={{ marginTop: '0.5rem' }}
-                                            required
-                                        />
-                                    )}
-                                </div>
+                                    />
+                                )}
                             </div>
-                        </>
-                    )}
-                </div>
 
-                {/* Ph.D Details Block */}
-                <div id="sub-phd" className="section-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>Ph.D Details</h3>
-                        <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                            <input type="checkbox" name="phdNA" checked={edu.phdNA} onChange={handleChange} /> Not Applicable
-                        </label>
+                            <div className="field">
+                                <label>Branch / Specialization <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="ugSpecialization" value={edu.ugSpecialization} onChange={handleChange} onClick={() => { if (edu.ugSpecialization === 'Other') setActiveOtherField('ugSpecialization'); }} required>
+                                    {(ugSpecializationMap[edu.ugDegree] || ['Other']).map((spec, idx) => (
+                                        <option key={idx} value={spec}>
+                                            {spec === 'Other' && edu.ugSpecializationOther ? edu.ugSpecializationOther : spec}
+                                        </option>
+                                    ))}
+                                </select>
+                                {edu.ugSpecialization === 'Other' && (activeOtherField === 'ugSpecialization' || !edu.ugSpecializationOther) && (
+                                    <input
+                                        type="text"
+                                        name="ugSpecializationOther"
+                                        value={edu.ugSpecializationOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (edu.ugSpecializationOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom specialization..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="number" step="0.01" name="ugPercentage" value={edu.ugPercentage} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="ugYear" value={edu.ugYear} onChange={handleChange} required>
+                                    <option value="" disabled>Select Year</option>
+                                    {generateYearOptions().map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="field">
+                                <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="ugAttempt" value={edu.ugAttempt} onChange={handleChange} required>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+
+                            <div className="field">
+                                <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="ugClass" value={edu.ugClass} onChange={handleChange} required>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+
+                            <div className="field">
+                                <label>University Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input
+                                    type="text"
+                                    name="ugUniversity"
+                                    value={edu.ugUniversity || ''}
+                                    onChange={handleChange}
+                                    placeholder="Enter University Name"
+                                    required
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                {(() => {
+                                    const ugColleges = getInstitutionsForDegree(edu.ugDegree);
+                                    return (
+                                        <>
+                                            <select
+                                                name="ugInstitutionSelect"
+                                                value={ugColleges.includes(edu.ugInstitution) ? edu.ugInstitution : (edu.ugInstitution ? 'Other' : '')}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setEdu(prev => ({
+                                                        ...prev,
+                                                        ugInstitution: val === 'Other' ? (prev.ugInstitutionOther || '') : val
+                                                    }));
+                                                    if (val === 'Other') setActiveOtherField('ugInstitution');
+                                                }}
+                                                required
+                                            >
+                                                <option value="" disabled>Select College / Institution</option>
+                                                {ugColleges.map((c, idx) => (
+                                                    <option key={idx} value={c}>{c}</option>
+                                                ))}
+                                                <option value="Other">Other (Custom College Name)</option>
+                                            </select>
+                                            {(!ugColleges.includes(edu.ugInstitution) || activeOtherField === 'ugInstitution') && (
+                                                <input
+                                                    type="text"
+                                                    name="ugInstitutionOther"
+                                                    value={edu.ugInstitutionOther || (ugColleges.includes(edu.ugInstitution) ? '' : edu.ugInstitution)}
+                                                    onChange={(e) => {
+                                                        const customVal = e.target.value;
+                                                        setEdu(prev => ({ ...prev, ugInstitutionOther: customVal, ugInstitution: customVal }));
+                                                    }}
+                                                    placeholder="Enter Custom College / Institution Name"
+                                                    className="select-other-input"
+                                                    style={{ marginTop: '0.5rem' }}
+                                                    required
+                                                />
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+
+                            {['B.E.', 'B.Tech.'].includes(edu.ugDegree) ? (
+                                <div className="field">
+                                    <label>GATE Score (if applicable)</label>
+                                    <input type="text" name="ugGateScore" value={edu.ugGateScore} onChange={handleChange} placeholder="e.g. 650" />
+                                </div>
+                            ) : (
+                                <div className="field">
+                                    <label>NET / SLET Score (if applicable)</label>
+                                    <input type="text" name="ugNetSletScore" value={edu.ugNetSletScore} onChange={handleChange} placeholder="e.g. Qualified 2023" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="field" style={{ marginTop: '1rem' }}>
+                            <label>UG Degree Certificate Upload (Optional)</label>
+                            <input type="file" onChange={(e) => handleFileChange(e, 'ugDoc')} accept=".pdf,image/*" />
+                        </div>
                     </div>
 
-                    {!edu.phdNA && (
-                        <>
-                            <div className="grid-2">
-                                <div className="field">
-                                    <label>Ph.D Status</label>
-                                    <select name="phdStatus" value={edu.phdStatus} onChange={handleChange}>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Thesis Submitted">Thesis Submitted</option>
-                                        <option value="Ongoing / Registered">Ongoing / Registered</option>
-                                    </select>
-                                </div>
+                    {/* PG Degree Block */}
+                    <div id="sub-pg" className="section-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>Postgraduate (PG) Degree</h3>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <input type="checkbox" name="pgNA" checked={edu.pgNA} onChange={handleChange} /> Not Applicable
+                            </label>
+                        </div>
 
-                                <div className="field">
-                                    <label>University / College Institution <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <select
-                                        name="phdInstitutionSelect"
-                                        value={collegesList.includes(edu.phdInstitution) ? edu.phdInstitution : (edu.phdInstitution ? 'Other' : '')}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setEdu(prev => ({
-                                                ...prev,
-                                                phdInstitution: val === 'Other' ? (prev.phdInstitutionOther || '') : val
-                                            }));
-                                            if (val === 'Other') setActiveOtherField('phdInstitution');
-                                        }}
-                                        required
-                                    >
-                                        <option value="" disabled>Select College / Institution</option>
-                                        {collegesList.map((c, idx) => (
-                                            <option key={idx} value={c}>{c}</option>
-                                        ))}
-                                        <option value="Other">Other (Custom College Name)</option>
-                                    </select>
-                                    {(!collegesList.includes(edu.phdInstitution) || activeOtherField === 'phdInstitution') && (
+                        {!edu.pgNA && (
+                            <>
+                                <div className="grid-2">
+                                    <div className="field">
+                                        <label>Degree <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="pgDegree" value={edu.pgDegree} onChange={handleChange} onClick={() => { if (edu.pgDegree === 'Other') setActiveOtherField('pgDegree'); }} required>
+                                            <option value="M.E.">M.E.</option>
+                                            <option value="M.Tech.">M.Tech.</option>
+                                            <option value="M.Sc.">M.Sc.</option>
+                                            <option value="M.A.">M.A.</option>
+                                            <option value="M.Com.">M.Com.</option>
+                                            <option value="M.C.A.">M.C.A.</option>
+                                            <option value="M.B.A.">M.B.A.</option>
+                                            <option value="Other">{edu.pgDegreeOther || 'Other'}</option>
+                                        </select>
+                                        {edu.pgDegree === 'Other' && (activeOtherField === 'pgDegree' || !edu.pgDegreeOther) && (
+                                            <input
+                                                type="text"
+                                                name="pgDegreeOther"
+                                                value={edu.pgDegreeOther || ''}
+                                                onChange={handleChange}
+                                                onBlur={() => { if (edu.pgDegreeOther?.trim()) setActiveOtherField(null); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                                placeholder="Type custom degree..."
+                                                className="select-other-input"
+                                                autoFocus
+                                                required
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Branch / Specialization <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="pgSpecialization" value={edu.pgSpecialization} onChange={handleChange} onClick={() => { if (edu.pgSpecialization === 'Other') setActiveOtherField('pgSpecialization'); }} required>
+                                            {Array.from(new Set([
+                                                ...getDepartmentPgSpecializations(edu.pgDegree, profileData?.user?.department || user?.department || '', edu.ugDegree, edu.ugSpecialization),
+                                                ...(dynamicPgDomains.length > 0 ? dynamicPgDomains : []),
+                                                'Other'
+                                            ])).map((spec, idx) => (
+                                                <option key={idx} value={spec}>
+                                                    {spec === 'Other' && edu.pgSpecializationOther ? edu.pgSpecializationOther : spec}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {edu.pgSpecialization === 'Other' && (activeOtherField === 'pgSpecialization' || !edu.pgSpecializationOther) && (
+                                            <input
+                                                type="text"
+                                                name="pgSpecializationOther"
+                                                value={edu.pgSpecializationOther || ''}
+                                                onChange={handleChange}
+                                                onBlur={() => { if (edu.pgSpecializationOther?.trim()) setActiveOtherField(null); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                                placeholder="Type custom specialization..."
+                                                className="select-other-input"
+                                                autoFocus
+                                                required
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="number" step="0.01" name="pgPercentage" value={edu.pgPercentage} onChange={handleChange} required />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="pgYear" value={edu.pgYear} onChange={handleChange} required>
+                                            <option value="" disabled>Select Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="pgAttempt" value={edu.pgAttempt} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="pgClass" value={edu.pgClass} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>University Name <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input
                                             type="text"
-                                            name="phdInstitutionOther"
-                                            value={edu.phdInstitutionOther || (collegesList.includes(edu.phdInstitution) ? '' : edu.phdInstitution)}
-                                            onChange={(e) => {
-                                                const customVal = e.target.value;
-                                                setEdu(prev => ({ ...prev, phdInstitutionOther: customVal, phdInstitution: customVal }));
-                                            }}
-                                            placeholder="Enter Custom College / Institution Name"
-                                            className="select-other-input"
-                                            style={{ marginTop: '0.5rem' }}
+                                            name="pgUniversity"
+                                            value={edu.pgUniversity || ''}
+                                            onChange={handleChange}
+                                            placeholder="Enter University Name"
                                             required
                                         />
-                                    )}
+                                    </div>
+
+                                    <div className="field">
+                                        <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                        {(() => {
+                                            const pgColleges = getInstitutionsForDegree(edu.pgDegree);
+                                            return (
+                                                <>
+                                                    <select
+                                                        name="pgInstitutionSelect"
+                                                        value={pgColleges.includes(edu.pgInstitution) ? edu.pgInstitution : (edu.pgInstitution ? 'Other' : '')}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setEdu(prev => ({
+                                                                ...prev,
+                                                                pgInstitution: val === 'Other' ? (prev.pgInstitutionOther || '') : val
+                                                            }));
+                                                            if (val === 'Other') setActiveOtherField('pgInstitution');
+                                                        }}
+                                                        required
+                                                    >
+                                                        <option value="" disabled>Select College / Institution</option>
+                                                        {pgColleges.map((c, idx) => (
+                                                            <option key={idx} value={c}>{c}</option>
+                                                        ))}
+                                                        <option value="Other">Other (Custom College Name)</option>
+                                                    </select>
+                                                    {(!pgColleges.includes(edu.pgInstitution) || activeOtherField === 'pgInstitution') && (
+                                                        <input
+                                                            type="text"
+                                                            name="pgInstitutionOther"
+                                                            value={edu.pgInstitutionOther || (pgColleges.includes(edu.pgInstitution) ? '' : edu.pgInstitution)}
+                                                            onChange={(e) => {
+                                                                const customVal = e.target.value;
+                                                                setEdu(prev => ({ ...prev, pgInstitutionOther: customVal, pgInstitution: customVal }));
+                                                            }}
+                                                            placeholder="Enter Custom College / Institution Name"
+                                                            className="select-other-input"
+                                                            style={{ marginTop: '0.5rem' }}
+                                                            required
+                                                        />
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
 
-                                <div className="field">
-                                    <label>Thesis / Research Title <span style={{ color: '#ef4444' }}>*</span></label>
-                                    <input type="text" name="phdTopic" value={edu.phdTopic} onChange={handleChange} placeholder="Title of Ph.D thesis" required />
+                                <div className="field" style={{ marginTop: '1rem' }}>
+                                    <label>PG Degree Certificate Upload (Optional)</label>
+                                    <input type="file" onChange={(e) => handleFileChange(e, 'pgDoc')} accept=".pdf,image/*" />
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* M.Phil Degree Block */}
+                    <div id="sub-mphil" className="section-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>M.Phil Degree</h3>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <input type="checkbox" name="mphilNA" checked={edu.mphilNA} onChange={handleChange} /> Not Applicable
+                            </label>
+                        </div>
+
+                        {!edu.mphilNA && (
+                            <>
+                                <div className="grid-2">
+                                    <div className="field">
+                                        <label>Specialization <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="text" name="mphilSpecialization" value={edu.mphilSpecialization} onChange={handleChange} placeholder="e.g. Physics, Chemistry..." required />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Percentage / CGPA <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="number" step="0.01" name="mphilPercentage" value={edu.mphilPercentage} onChange={handleChange} required />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Year of Passing <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="mphilYear" value={edu.mphilYear} onChange={handleChange} required>
+                                            <option value="" disabled>Select Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>First Attempt? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="mphilAttempt" value={edu.mphilAttempt} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>First Class? <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select name="mphilClass" value={edu.mphilClass} onChange={handleChange} required>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>University Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input
+                                            type="text"
+                                            name="mphilUniversity"
+                                            value={edu.mphilUniversity || ''}
+                                            onChange={handleChange}
+                                            placeholder="Enter University Name"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                        {(() => {
+                                            const mphilColleges = getInstitutionsForDegree(edu.mphilDegree || 'M.Phil');
+                                            return (
+                                                <>
+                                                    <select
+                                                        name="mphilInstitutionSelect"
+                                                        value={mphilColleges.includes(edu.mphilInstitution) ? edu.mphilInstitution : (edu.mphilInstitution ? 'Other' : '')}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setEdu(prev => ({
+                                                                ...prev,
+                                                                mphilInstitution: val === 'Other' ? (prev.mphilInstitutionOther || '') : val
+                                                            }));
+                                                            if (val === 'Other') setActiveOtherField('mphilInstitution');
+                                                        }}
+                                                        required
+                                                    >
+                                                        <option value="" disabled>Select College / Institution</option>
+                                                        {mphilColleges.map((c, idx) => (
+                                                            <option key={idx} value={c}>{c}</option>
+                                                        ))}
+                                                        <option value="Other">Other (Custom College Name)</option>
+                                                    </select>
+                                                    {(!mphilColleges.includes(edu.mphilInstitution) || activeOtherField === 'mphilInstitution') && (
+                                                        <input
+                                                            type="text"
+                                                            name="mphilInstitutionOther"
+                                                            value={edu.mphilInstitutionOther || (mphilColleges.includes(edu.mphilInstitution) ? '' : edu.mphilInstitution)}
+                                                            onChange={(e) => {
+                                                                const customVal = e.target.value;
+                                                                setEdu(prev => ({ ...prev, mphilInstitutionOther: customVal, mphilInstitution: customVal }));
+                                                            }}
+                                                            placeholder="Enter Custom College / Institution Name"
+                                                            className="select-other-input"
+                                                            style={{ marginTop: '0.5rem' }}
+                                                            required
+                                                        />
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Ph.D Details Block */}
+                    <div id="sub-phd" className="section-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>Ph.D Details</h3>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <input type="checkbox" name="phdNA" checked={edu.phdNA} onChange={handleChange} /> Not Applicable
+                            </label>
+                        </div>
+
+                        {!edu.phdNA && (
+                            <>
+                                <div className="grid-2">
+                                    <div className="field">
+                                        <label>Ph.D Status</label>
+                                        <select name="phdStatus" value={edu.phdStatus} onChange={handleChange}>
+                                            <option value="Completed">Completed</option>
+                                            <option value="Thesis Submitted">Thesis Submitted</option>
+                                            <option value="Ongoing / Registered">Ongoing / Registered</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>University Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input
+                                            type="text"
+                                            name="phdUniversity"
+                                            value={edu.phdUniversity || ''}
+                                            onChange={handleChange}
+                                            placeholder="Enter University Name"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <select
+                                            name="phdInstitutionSelect"
+                                            value={collegesList.includes(edu.phdInstitution) ? edu.phdInstitution : (edu.phdInstitution ? 'Other' : '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEdu(prev => ({
+                                                    ...prev,
+                                                    phdInstitution: val === 'Other' ? (prev.phdInstitutionOther || '') : val
+                                                }));
+                                                if (val === 'Other') setActiveOtherField('phdInstitution');
+                                            }}
+                                            required
+                                        >
+                                            <option value="" disabled>Select College / Institution</option>
+                                            {collegesList.map((c, idx) => (
+                                                <option key={idx} value={c}>{c}</option>
+                                            ))}
+                                            <option value="Other">Other (Custom College Name)</option>
+                                        </select>
+                                        {(!collegesList.includes(edu.phdInstitution) || activeOtherField === 'phdInstitution') && (
+                                            <input
+                                                type="text"
+                                                name="phdInstitutionOther"
+                                                value={edu.phdInstitutionOther || (collegesList.includes(edu.phdInstitution) ? '' : edu.phdInstitution)}
+                                                onChange={(e) => {
+                                                    const customVal = e.target.value;
+                                                    setEdu(prev => ({ ...prev, phdInstitutionOther: customVal, phdInstitution: customVal }));
+                                                }}
+                                                placeholder="Enter Custom College / Institution Name"
+                                                className="select-other-input"
+                                                style={{ marginTop: '0.5rem' }}
+                                                required
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Thesis / Research Title <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input type="text" name="phdTopic" value={edu.phdTopic} onChange={handleChange} placeholder="Title of Ph.D thesis" required />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Research Guide Name</label>
+                                        <input type="text" name="phdGuideName" value={edu.phdGuideName} onChange={handleChange} />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Guide Organization / College</label>
+                                        <input type="text" name="phdGuideCollege" value={edu.phdGuideCollege} onChange={handleChange} />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Year of Registration</label>
+                                        <select name="phdYearRegistration" value={edu.phdYearRegistration} onChange={handleChange}>
+                                            <option value="">Select Registration Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>Year of Viva / Completion</label>
+                                        <select name="phdYear" value={edu.phdYear} onChange={handleChange}>
+                                            <option value="">Select Completion Year</option>
+                                            {generateYearOptions().map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="field">
+                                        <label>No. of Publications During Ph.D</label>
+                                        <input type="number" name="phdPublicationsDuring" value={edu.phdPublicationsDuring} onChange={handleChange} />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>No. of Publications Post Ph.D</label>
+                                        <input type="number" name="phdPublicationsPost" value={edu.phdPublicationsPost} onChange={handleChange} />
+                                    </div>
+
+                                    <div className="field">
+                                        <label>No. of Awards</label>
+                                        <input type="number" min="0" name="phdAwards" value={edu.phdAwards} onChange={handleChange} />
+                                    </div>
                                 </div>
 
-                                <div className="field">
-                                    <label>Research Guide Name</label>
-                                    <input type="text" name="phdGuideName" value={edu.phdGuideName} onChange={handleChange} />
+                                <div className="field" style={{ marginTop: '1rem' }}>
+                                    <label>Ph.D Degree / Provisional Certificate Upload (Optional)</label>
+                                    <input type="file" onChange={(e) => handleFileChange(e, 'phdDoc')} accept=".pdf,image/*" />
                                 </div>
+                            </>
+                        )}
+                    </div>
 
-                                <div className="field">
-                                    <label>Guide Organization / College</label>
-                                    <input type="text" name="phdGuideCollege" value={edu.phdGuideCollege} onChange={handleChange} />
-                                </div>
-
-                                <div className="field">
-                                    <label>Year of Registration</label>
-                                    <select name="phdYearRegistration" value={edu.phdYearRegistration} onChange={handleChange}>
-                                        <option value="">Select Registration Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>Year of Viva / Completion</label>
-                                    <select name="phdYear" value={edu.phdYear} onChange={handleChange}>
-                                        <option value="">Select Completion Year</option>
-                                        {generateYearOptions().map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="field">
-                                    <label>No. of Publications During Ph.D</label>
-                                    <input type="number" name="phdPublicationsDuring" value={edu.phdPublicationsDuring} onChange={handleChange} />
-                                </div>
-
-                                <div className="field">
-                                    <label>No. of Publications Post Ph.D</label>
-                                    <input type="number" name="phdPublicationsPost" value={edu.phdPublicationsPost} onChange={handleChange} />
-                                </div>
-
-                                <div className="field">
-                                    <label>No. of Awards</label>
-                                    <input type="number" min="0" name="phdAwards" value={edu.phdAwards} onChange={handleChange} />
-                                </div>
-
-                                <div className="field">
-                                    <label>No. of Funded Projects</label>
-                                    <input type="number" min="0" name="phdFundedProjects" value={edu.phdFundedProjects} onChange={handleChange} />
-                                </div>
-
-                                <div className="field">
-                                    <label>No. of Funded Consultancy</label>
-                                    <input type="number" min="0" name="phdFundedConsultancy" value={edu.phdFundedConsultancy} onChange={handleChange} />
-                                </div>
-                            </div>
-
-                            <div className="field" style={{ marginTop: '1rem' }}>
-                                <label>Ph.D Degree / Provisional Certificate Upload (Optional)</label>
-                                <input type="file" onChange={(e) => handleFileChange(e, 'phdDoc')} accept=".pdf,image/*" />
-                            </div>
-                        </>
-                    )}
-                </div>
+                </fieldset>
 
                 {/* Navigation Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginTop: '2rem' }}>
-                    <button type="button" onClick={onPrev} className="nav-btn secondary">
+                <div className="profile-tab-actions">
+                    <button type="button" onClick={onPrev} className="nav-btn primary" style={{ background: '#5551ff', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '10px' }}>
                         <ArrowLeft size={18} /> Back: Personal Info
                     </button>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    {!isSubmitted ? (
                         <button type="submit" disabled={loading} className="nav-btn secondary" style={{ background: 'var(--color-brand-dark)', color: 'white', padding: '0.75rem 1.5rem' }}>
                             <Save size={18} /> {loading ? 'Saving...' : 'Save Education Details'}
                         </button>
-                        <button
-                            type="button"
-                            disabled={loading}
-                            onClick={handleNextClick}
-                            className="nav-btn primary"
-                            style={{ padding: '0.75rem 1.5rem' }}
-                        >
-                            Next: Work Experience <ArrowRight size={18} />
-                        </button>
-                    </div>
+                    ) : (
+                        <span style={{ padding: '0.75rem 1.25rem', background: '#f1f5f9', color: '#64748b', borderRadius: '10px', fontWeight: 600, border: '1px solid #cbd5e1', fontSize: '0.9rem' }}>
+                            🔒 Application Submitted (Edits Locked)
+                        </span>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (isSubmitted && onNext) onNext();
+                            else handleNextClick();
+                        }}
+                        className="nav-btn primary"
+                        style={{ padding: '0.75rem 1.5rem' }}
+                    >
+                        Next: Work Experience <ArrowRight size={18} />
+                    </button>
                 </div>
-            </form >
+            </form>
         </div >
     );
 };

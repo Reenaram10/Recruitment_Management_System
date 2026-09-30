@@ -3,13 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import { PersonalTab } from '../components/profile/PersonalTab';
 import { EducationTab } from '../components/profile/EducationTab';
 import { ExperienceTab } from '../components/profile/ExperienceTab';
+import { ResearchConsultancyTab } from '../components/profile/ResearchConsultancyTab';
 import { CertificationsTab } from '../components/profile/CertificationsTab';
+import { OtherDetailsTab } from '../components/profile/OtherDetailsTab';
 import { SubmittedTab } from '../components/profile/SubmittedTab';
 import {
     User,
     GraduationCap,
     Briefcase,
+    BookOpen,
     Award,
+    Sparkles,
     FileCheck,
     Check,
     Lock,
@@ -29,6 +33,42 @@ export const ProfilePage = () => {
     const [maxUnlockedStep, setMaxUnlockedStep] = useState(1);
     const [warningMsg, setWarningMsg] = useState('');
     const [activityOpen, setActivityOpen] = useState(true);
+    const [sectionConfig, setSectionConfig] = useState({
+        experience: true,
+        research: true,
+        certifications: true,
+        sub_journals: true,
+        sub_projects: true,
+        sub_consultancy: true
+    });
+
+    const fetchSectionConfig = async () => {
+        try {
+            const res = await fetch('/api/admin/dropdowns');
+            const data = await res.json();
+            if (data.success && data.options) {
+                const secOpts = data.options.filter(o => o.category === 'app_section');
+                const expActive = !secOpts.some(s => s.option_value === 'section_experience' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+                const resActive = !secOpts.some(s => s.option_value === 'section_research' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+                const certActive = !secOpts.some(s => s.option_value === 'section_certifications' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+
+                const jourActive = !secOpts.some(s => s.option_value === 'sub_section_journals' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+                const projActive = !secOpts.some(s => s.option_value === 'sub_section_projects' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+                const consActive = !secOpts.some(s => s.option_value === 'sub_section_consultancy' && (s.is_active === 0 || s.is_active === false || s.is_active === '0'));
+
+                setSectionConfig({
+                    experience: expActive,
+                    research: resActive,
+                    certifications: certActive,
+                    sub_journals: jourActive,
+                    sub_projects: projActive,
+                    sub_consultancy: consActive
+                });
+            }
+        } catch (err) {
+            console.error('Error loading section config:', err);
+        }
+    };
 
     const fetchProfile = async () => {
         if (!user?.email) return;
@@ -40,17 +80,36 @@ export const ProfilePage = () => {
 
                 let unlocked = 1;
                 if (data.personal && data.personal.full_name) {
-                    unlocked = 2;
+                    unlocked = Math.max(unlocked, 2);
                 }
-                if (data.education && data.education.length > 0) {
-                    unlocked = 3;
+                if (unlocked >= 2 && data.education && data.education.length > 0) {
+                    unlocked = Math.max(unlocked, 3);
                 }
-                if (data.experience && data.experience.length > 0) {
-                    unlocked = 4;
+                if (unlocked >= 3 && ((data.experience && data.experience.length > 0) || maxUnlockedStep >= 4)) {
+                    unlocked = Math.max(unlocked, 4);
                 }
-                if (data.certifications && data.certifications.length > 0) {
-                    unlocked = 5;
+                if (
+                    unlocked >= 4 && (
+                        (data.journal_publications && data.journal_publications.length > 0) ||
+                        (data.research_projects && data.research_projects.length > 0) ||
+                        (data.funded_consultancy && data.funded_consultancy.length > 0) ||
+                        maxUnlockedStep >= 5
+                    )
+                ) {
+                    unlocked = Math.max(unlocked, 5);
                 }
+                if (unlocked >= 5 && ((data.certifications && data.certifications.length > 0) || maxUnlockedStep >= 6)) {
+                    unlocked = Math.max(unlocked, 6);
+                }
+                if (unlocked >= 6 && (data.other_details || (data.awards && data.awards.length > 0) || maxUnlockedStep >= 7)) {
+                    unlocked = Math.max(unlocked, 7);
+                }
+
+                // If already submitted, unlock all steps for viewing
+                if (data.personal && data.personal.applied_date) {
+                    unlocked = 7;
+                }
+
                 setMaxUnlockedStep((prev) => Math.max(prev, unlocked));
             }
         } catch (err) {
@@ -61,23 +120,33 @@ export const ProfilePage = () => {
     };
 
     useEffect(() => {
+        fetchSectionConfig();
         fetchProfile();
     }, [user]);
 
-    const tabs = [
-        { id: 1, label: 'Personal', icon: User, title: 'Personal Details' },
-        { id: 2, label: 'Education', icon: GraduationCap, title: 'Educational Qualifications' },
-        { id: 3, label: 'Experience', icon: Briefcase, title: 'Work & Teaching Experience' },
-        { id: 4, label: 'Certifications', icon: Award, title: 'Certifications & Achievements' },
-        { id: 5, label: 'Submitted View', icon: FileCheck, title: 'Submitted Application Review' },
+    const allTabs = [
+        { id: 1, label: 'Personal', icon: User, title: 'Personal Details', key: 'personal' },
+        { id: 2, label: 'Education', icon: GraduationCap, title: 'Educational Qualifications', key: 'education' },
+        { id: 3, label: 'Experience', icon: Briefcase, title: 'Work & Teaching Experience (Optional)', key: 'section_experience' },
+        { id: 4, label: 'Research & Consultancy', icon: BookOpen, title: 'Research & Consultancy Projects (Optional)', key: 'section_research' },
+        { id: 5, label: 'Certifications', icon: Award, title: 'Certifications & Achievements (Optional)', key: 'section_certifications' },
+        { id: 6, label: 'Other Details', icon: Sparkles, title: 'Awards, Family Details & References', key: 'other' },
+        { id: 7, label: 'Submitted View', icon: FileCheck, title: 'Submitted Application Review', key: 'submitted' },
     ];
+
+    const tabs = allTabs.filter(t => {
+        if (t.key === 'section_experience') return sectionConfig.experience;
+        if (t.key === 'section_research') return sectionConfig.research;
+        if (t.key === 'section_certifications') return sectionConfig.certifications;
+        return true;
+    });
 
     const currentTabObj = tabs.find((t) => t.id === currentStep) || tabs[0];
 
     const handleStepClick = (stepId) => {
         setWarningMsg('');
         if (stepId > maxUnlockedStep) {
-            setWarningMsg(`Please complete and save step ${maxUnlockedStep} before advancing to step ${stepId}.`);
+            setWarningMsg(`Please complete the current tab and click 'Save & Proceed' before advancing to step ${stepId}.`);
             return;
         }
         setCurrentStep(stepId);
@@ -92,7 +161,14 @@ export const ProfilePage = () => {
 
     const handleSaveAndAdvance = (completedStepId) => {
         setWarningMsg('');
-        const nextStep = completedStepId + 1;
+        let nextStep = completedStepId + 1;
+        // Skip disabled steps
+        while (nextStep <= 6) {
+            if (nextStep === 3 && !sectionConfig.experience) nextStep++;
+            else if (nextStep === 4 && !sectionConfig.research) nextStep++;
+            else if (nextStep === 5 && !sectionConfig.certifications) nextStep++;
+            else break;
+        }
         setMaxUnlockedStep((prev) => Math.max(prev, nextStep));
         setCurrentStep(nextStep);
         fetchProfile();
@@ -100,6 +176,11 @@ export const ProfilePage = () => {
 
     const candidateName = profileData?.personal?.full_name || user?.email?.split('@')[0] || 'Kalaiselvi';
     const photoUrl = profileData?.personal?.photo_path;
+
+    const researchSubItems = [];
+    if (sectionConfig.sub_journals !== false) researchSubItems.push({ id: 'sub-journals', label: 'Journal Publications (SCI & Scopus)' });
+    if (sectionConfig.sub_projects !== false) researchSubItems.push({ id: 'sub-projects', label: 'Funded Research Projects' });
+    if (sectionConfig.sub_consultancy !== false) researchSubItems.push({ id: 'sub-consultancy', label: 'Funded Consultancy Works' });
 
     const tabSubDivisions = {
         1: [
@@ -113,7 +194,8 @@ export const ProfilePage = () => {
             { id: 'sub-ug', label: 'UG Degree Details' },
             { id: 'sub-pg', label: 'PG Degree Details' },
             { id: 'sub-phd', label: 'Ph.D. Research Details' }
-        ]
+        ],
+        4: researchSubItems
     };
 
     const handleSubClick = (tabId, subId) => {
@@ -130,6 +212,67 @@ export const ProfilePage = () => {
             }
         }, 100);
     };
+
+    const isTabCompleted = (tabId) => {
+        if (!profileData) return false;
+        switch (tabId) {
+            case 1: // Personal
+                return !!(profileData.personal && profileData.personal.full_name && profileData.personal.full_name.trim() !== '');
+            case 2: // Education
+                return !!(profileData.education && profileData.education.length > 0);
+            case 3: // Experience
+                return !!(profileData.experience && profileData.experience.length > 0);
+            case 4: // Research & Consultancy
+                return !!(
+                    (profileData.journal_publications && profileData.journal_publications.length > 0) ||
+                    (profileData.research_projects && profileData.research_projects.length > 0) ||
+                    (profileData.funded_consultancy && profileData.funded_consultancy.length > 0) ||
+                    (profileData.phd_details && (Number(profileData.phd_details.no_of_funded_projects) > 0 || Number(profileData.phd_details.no_of_funded_consultancy) > 0))
+                );
+            case 5: // Certifications
+                return !!(profileData.certifications && profileData.certifications.length > 0);
+            case 6: // Other Details
+                return !!(
+                    (profileData.other_details && (
+                        profileData.other_details.no_of_awards !== undefined ||
+                        profileData.other_details.ref1_name ||
+                        profileData.other_details.father_occupation
+                    )) || (profileData.awards && profileData.awards.length > 0)
+                );
+            case 7: // Submitted View
+                return !!(profileData.personal && profileData.personal.applied_date);
+            default:
+                return false;
+        }
+    };
+
+    const isSubItemCompleted = (tabId, subId) => {
+        if (!profileData) return false;
+        const p = profileData.personal || {};
+        const edu = profileData.education || [];
+        const phd = profileData.phd_details || {};
+
+        if (tabId === 1) {
+            if (subId === 'sub-basic') return !!(p.full_name && p.dob && p.gender);
+            if (subId === 'sub-contact') return !!(p.phone && p.email);
+            if (subId === 'sub-address') return !!(p.permanent_address || p.communication_address);
+        }
+        if (tabId === 2) {
+            if (subId === 'sub-sslc') return edu.some(e => e.qual_type === 'tenth');
+            if (subId === 'sub-hsc') return edu.some(e => e.qual_type === 'twelfth');
+            if (subId === 'sub-ug') return edu.some(e => e.qual_type === 'ug');
+            if (subId === 'sub-pg') return edu.some(e => e.qual_type === 'pg');
+            if (subId === 'sub-phd') return !!(phd.university || edu.some(e => e.qual_type === 'phd'));
+        }
+        if (tabId === 4) {
+            if (subId === 'sub-journals') return (profileData.journal_publications && profileData.journal_publications.length > 0);
+            if (subId === 'sub-projects') return (Number(phd.no_of_funded_projects) > 0 || (profileData.research_projects && profileData.research_projects.length > 0));
+            if (subId === 'sub-consultancy') return (Number(phd.no_of_funded_consultancy) > 0 || (profileData.funded_consultancy && profileData.funded_consultancy.length > 0));
+        }
+        return false;
+    };
+
+    const isSubmitted = !!(profileData?.personal?.applied_date);
 
     return (
         <div className="profile-page-wrapper">
@@ -171,7 +314,7 @@ export const ProfilePage = () => {
                             {tabs.map((tab) => {
                                 const Icon = tab.icon;
                                 const isActive = currentStep === tab.id;
-                                const isDone = tab.id < maxUnlockedStep;
+                                const isDone = isTabCompleted(tab.id);
                                 const isLocked = tab.id > maxUnlockedStep;
                                 const subItems = tabSubDivisions[tab.id] || [];
 
@@ -181,31 +324,41 @@ export const ProfilePage = () => {
                                             type="button"
                                             className={`sidebar-menu-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                                             onClick={() => handleStepClick(tab.id)}
-                                            style={isLocked ? { opacity: 0.6 } : {}}
+                                            style={isLocked ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                                         >
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <Icon size={15} color={isActive ? '#1d4ed8' : (isLocked ? '#94a3b8' : '#64748b')} />
                                                 {tab.label}
                                             </span>
-                                            {isDone && <Check size={14} color="#10b981" />}
-                                            {isLocked && <Lock size={13} color="#94a3b8" />}
+                                            {isDone ? (
+                                                <Check size={14} color="#10b981" strokeWidth={2.5} />
+                                            ) : isLocked ? (
+                                                <Lock size={13} color="#94a3b8" />
+                                            ) : null}
                                         </button>
 
                                         {isActive && subItems.length > 0 && (
                                             <div className="sidebar-sub-division-list">
-                                                {subItems.map((sub) => (
-                                                    <button
-                                                        key={sub.id}
-                                                        type="button"
-                                                        className="sidebar-sub-item"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSubClick(tab.id, sub.id);
-                                                        }}
-                                                    >
-                                                        <span className="sidebar-sub-bullet">•</span> {sub.label}
-                                                    </button>
-                                                ))}
+                                                {subItems.map((sub) => {
+                                                    const isSubDone = isSubItemCompleted(tab.id, sub.id);
+                                                    return (
+                                                        <button
+                                                            key={sub.id}
+                                                            type="button"
+                                                            className="sidebar-sub-item"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleSubClick(tab.id, sub.id);
+                                                            }}
+                                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
+                                                        >
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                <span className="sidebar-sub-bullet">•</span> {sub.label}
+                                                            </span>
+                                                            {isSubDone && <Check size={12} color="#10b981" strokeWidth={2.5} />}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -226,14 +379,8 @@ export const ProfilePage = () => {
                 {/* Horizontal Progress Stepper Bar */}
                 <div className="candidate-stepper-wrapper">
                     <div className="candidate-stepper-container">
-                        {[
-                            { id: 1, label: 'Personal Info' },
-                            { id: 2, label: 'Education & Documents' },
-                            { id: 3, label: 'Work Experience' },
-                            { id: 4, label: 'Certifications' },
-                            { id: 5, label: 'Submit & Preview' },
-                        ].map((step, idx) => {
-                            const isCompleted = step.id < currentStep || (step.id < maxUnlockedStep && step.id !== currentStep);
+                        {tabs.map((step, idx) => {
+                            const isCompleted = step.id < currentStep;
                             const isActive = step.id === currentStep;
                             const isLocked = step.id > maxUnlockedStep;
 
@@ -278,6 +425,31 @@ export const ProfilePage = () => {
                     </div>
                 </div>
 
+                {isSubmitted && (
+                    <div
+                        style={{
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            color: '#065f46',
+                            padding: '0.9rem 1.25rem',
+                            borderRadius: '12px',
+                            marginBottom: '1.5rem',
+                            fontWeight: 600,
+                            fontSize: '0.92rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.6rem',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        }}
+                    >
+                        <Lock size={20} color="#059669" />
+                        <div>
+                            <span style={{ fontWeight: 700 }}>Application Submitted &amp; Locked</span> — Your application was submitted on{' '}
+                            {new Date(profileData.personal.applied_date).toLocaleDateString()}. Profile editing is now locked and read-only.
+                        </div>
+                    </div>
+                )}
+
                 {warningMsg && (
                     <div
                         style={{
@@ -308,6 +480,7 @@ export const ProfilePage = () => {
                         <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
                             <PersonalTab
                                 profileData={profileData}
+                                isSubmitted={isSubmitted}
                                 onSaveSuccess={() => handleSaveOnly(1)}
                                 onNext={() => handleSaveAndAdvance(1)}
                             />
@@ -316,6 +489,7 @@ export const ProfilePage = () => {
                         <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
                             <EducationTab
                                 profileData={profileData}
+                                isSubmitted={isSubmitted}
                                 onSaveSuccess={() => handleSaveOnly(2)}
                                 onNext={() => handleSaveAndAdvance(2)}
                                 onPrev={() => setCurrentStep(1)}
@@ -325,6 +499,7 @@ export const ProfilePage = () => {
                         <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
                             <ExperienceTab
                                 profileData={profileData}
+                                isSubmitted={isSubmitted}
                                 onSaveSuccess={() => handleSaveOnly(3)}
                                 onNext={() => handleSaveAndAdvance(3)}
                                 onPrev={() => setCurrentStep(2)}
@@ -332,8 +507,10 @@ export const ProfilePage = () => {
                         </div>
 
                         <div style={{ display: currentStep === 4 ? 'block' : 'none' }}>
-                            <CertificationsTab
+                            <ResearchConsultancyTab
                                 profileData={profileData}
+                                isSubmitted={isSubmitted}
+                                sectionConfig={sectionConfig}
                                 onSaveSuccess={() => handleSaveOnly(4)}
                                 onNext={() => handleSaveAndAdvance(4)}
                                 onPrev={() => setCurrentStep(3)}
@@ -341,8 +518,29 @@ export const ProfilePage = () => {
                         </div>
 
                         <div style={{ display: currentStep === 5 ? 'block' : 'none' }}>
+                            <CertificationsTab
+                                profileData={profileData}
+                                isSubmitted={isSubmitted}
+                                onSaveSuccess={() => handleSaveOnly(5)}
+                                onNext={() => handleSaveAndAdvance(5)}
+                                onPrev={() => setCurrentStep(4)}
+                            />
+                        </div>
+
+                        <div style={{ display: currentStep === 6 ? 'block' : 'none' }}>
+                            <OtherDetailsTab
+                                profileData={profileData}
+                                isSubmitted={isSubmitted}
+                                onSaveSuccess={() => handleSaveOnly(6)}
+                                onNext={() => handleSaveAndAdvance(6)}
+                                onPrev={() => setCurrentStep(5)}
+                            />
+                        </div>
+
+                        <div style={{ display: currentStep === 7 ? 'block' : 'none' }}>
                             <SubmittedTab
                                 profileData={profileData}
+                                isSubmitted={isSubmitted}
                                 onEditTab={(tabNum) => setCurrentStep(tabNum)}
                             />
                         </div>

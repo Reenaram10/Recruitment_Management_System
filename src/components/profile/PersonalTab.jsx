@@ -14,7 +14,7 @@ const formatDateValue = (val) => {
     }
 };
 
-export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
+export const PersonalTab = ({ profileData, isSubmitted, onSaveSuccess, onNext }) => {
     const { user } = useAuth();
     const formRef = useRef(null);
     const [banner, setBanner] = useState({ type: '', message: '' });
@@ -22,6 +22,7 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
     const [posts, setPosts] = useState([]);
     const [jobCalls, setJobCalls] = useState([]);
 
+    const [wasValidated, setWasValidated] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [localDept, setLocalDept] = useState(() => user?.department || '');
     const [photoPreview, setPhotoPreview] = useState(null);
@@ -29,7 +30,7 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
     const [activeOtherField, setActiveOtherField] = useState(null);
 
     const [formData, setFormData] = useState({
-        appliedDate: formatDateValue(new Date()),
+        appliedDate: '',
         post: 'Assistant Professor',
         postOther: '',
         fullName: '',
@@ -97,7 +98,7 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
             const sanitize12 = (v) => (v ? String(v).replace(/\D/g, '').slice(0, 12) : '');
 
             setFormData({
-                appliedDate: formatDateValue(p.applied_date) || formatDateValue(new Date()),
+                appliedDate: formatDateValue(p.applied_date) || '',
                 post: p.post || 'Assistant Professor',
                 postOther: p.post_other || '',
                 fullName: p.full_name || '',
@@ -191,20 +192,27 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
         return '';
     };
 
+    const scrollToFirstInvalid = () => {
+        setTimeout(() => {
+            const firstInvalid = formRef.current?.querySelector(':invalid, .is-invalid, input[style*="border-color: rgb(239, 68, 68)"]');
+            if (firstInvalid) {
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (typeof firstInvalid.focus === 'function') firstInvalid.focus();
+            }
+        }, 50);
+    };
+
     const savePersonalData = async () => {
         setBanner({ type: '', message: '' });
+        setWasValidated(true);
 
-        const scrollToContactError = () => {
-            setTimeout(() => {
-                const el = document.getElementById('sub-contact');
-                if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 50);
-        };
-
-        if (!photoPreview && !photoFile) {
+        const photoMissing = !photoPreview && !photoFile;
+        if (photoMissing) {
             setBanner({ type: 'error', message: 'Please upload a passport photo before saving.' });
+            setTimeout(() => {
+                const el = document.getElementById('passport-photo-upload-wrap');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
             return false;
         }
 
@@ -219,7 +227,13 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
                 type: 'error',
                 message: `Please correct the highlighted error(s) in: ${invalidFields.join(', ')}.`
             });
-            scrollToContactError();
+            scrollToFirstInvalid();
+            return false;
+        }
+
+        if (formRef.current && !formRef.current.checkValidity()) {
+            setBanner({ type: 'error', message: 'Please fill out all mandatory fields highlighted in red.' });
+            scrollToFirstInvalid();
             return false;
         }
 
@@ -267,8 +281,10 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
     };
 
     const handleNextClick = async () => {
-        if (formRef.current && !formRef.current.reportValidity()) {
-            setBanner({ type: 'error', message: 'Please fill out all mandatory fields before proceeding to the next tab.' });
+        setWasValidated(true);
+        if (formRef.current && !formRef.current.checkValidity()) {
+            setBanner({ type: 'error', message: 'Please fill out all mandatory fields highlighted in red before proceeding.' });
+            scrollToFirstInvalid();
             return;
         }
         const saved = await savePersonalData();
@@ -277,454 +293,479 @@ export const PersonalTab = ({ profileData, onSaveSuccess, onNext }) => {
         }
     };
 
+    const photoMissing = wasValidated && !photoPreview && !photoFile;
+
     return (
         <div>
-            <Banner type={banner.type} message={banner.message} />
+            <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
 
-            <form ref={formRef} onSubmit={handleSubmit}>
-                {/* Card 1: Identification & Basic Info */}
-                <div id="sub-basic" className="section-card">
-                    <div className="section-card-header">
-                        <User size={20} color="#3b82f6" /> Identification &amp; Basic Info
-                    </div>
-
-                    <div className="grid-2">
-                        <div className="field">
-                            <label>Full Name (as in certificates) <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Dr. / Mr. / Ms." required />
+            <form ref={formRef} className={wasValidated ? 'was-validated' : ''} onSubmit={handleSubmit} noValidate>
+                <fieldset disabled={isSubmitted} style={{ border: 'none', padding: 0, margin: 0 }}>
+                    {/* Card 1: Identification & Basic Info */}
+                    <div id="sub-basic" className="section-card">
+                        <div className="section-card-header">
+                            <User size={20} color="#3b82f6" /> Identification &amp; Basic Info
                         </div>
 
-                        <div className="field">
-                            <label>
-                                Upload Passport Photo {!photoPreview && <span style={{ color: '#ef4444' }}>*</span>}
-                            </label>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
-                                <label
-                                    htmlFor="passport-photo-upload"
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        padding: '0.45rem 0.85rem',
-                                        background: 'var(--color-bg-light)',
-                                        border: '1px solid var(--color-border)',
-                                        borderRadius: '8px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 600,
-                                        color: 'var(--color-text-main)',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                        userSelect: 'none'
-                                    }}
-                                >
-                                    Choose File
-                                </label>
-                                <input
-                                    id="passport-photo-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    style={{ display: 'none' }}
-                                />
-                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: (photoFile || photoPreview) ? '#10b981' : 'var(--color-text-muted)' }}>
-                                    {photoFile ? photoFile.name : photoPreview ? '✓ Photo Uploaded' : 'No file chosen'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="field">
-                            <label>Applied Date <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="date" name="appliedDate" value={formData.appliedDate} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Department <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select
-                                value={localDept}
-                                disabled
-                                style={{ backgroundColor: 'var(--bg-secondary, #f1f5f9)', cursor: 'not-allowed', opacity: 0.8 }}
-                            >
-                                <option value="" disabled>Select Department</option>
-                                {departments.length > 0 ? (
-                                    departments.map(d => (
-                                        <option key={d.id || d.value} value={d.value || d.id}>{d.label || d.name || d.option_label}</option>
-                                    ))
-                                ) : (
-                                    <>
-                                        <option value="IT">Information Technology</option>
-                                        <option value="CSE">Computer Science &amp; Engineering</option>
-                                        <option value="ECE">Electronics &amp; Communication</option>
-                                        <option value="EEE">Electrical &amp; Electronics</option>
-                                        <option value="MECH">Mechanical Engineering</option>
-                                        <option value="CIVIL">Civil Engineering</option>
-                                        <option value="AIDS">AI &amp; Data Science</option>
-                                        <option value="MATHS">Mathematics</option>
-                                        <option value="PHYSICS">Physics</option>
-                                        <option value="CHEMISTRY">Chemistry</option>
-                                        <option value="TAMIL">Tamil</option>
-                                        <option value="ENGLISH">English</option>
-                                    </>
-                                )}
-                            </select>
-                            <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
-                                🔒 Locked (Department chosen during registration cannot be changed)
-                            </span>
-                        </div>
-
-                        <div className="field">
-                            <label>Post Applied For <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="post" value={formData.post} onChange={handleChange} onClick={() => { if (formData.post === 'Other') setActiveOtherField('post'); }} disabled={!localDept} required>
-                                {!localDept ? (
-                                    <option value="" disabled>Select Department First</option>
-                                ) : (
-                                    <option value="" disabled>Select post</option>
-                                )}
-                                {posts.length > 0 ? (
-                                    posts.map((p, idx) => (
-                                        <option key={p.id || idx} value={p.value || p.option_value}>
-                                            {p.label || p.option_label}
-                                        </option>
-                                    ))
-                                ) : (
-                                    <>
-                                        <option value="Assistant Professor">Assistant Professor</option>
-                                        <option value="Associate Professor">Associate Professor</option>
-                                        <option value="Professor">Professor</option>
-                                        <option value="Lab Assistant">Lab Assistant</option>
-                                        <option value="Administrative Staff">Administrative Staff</option>
-                                        <option value="Other">{formData.postOther || 'Other'}</option>
-                                    </>
-                                )}
-                            </select>
-                            {formData.post === 'Other' && (activeOtherField === 'post' || !formData.postOther) && (
-                                <input
-                                    type="text"
-                                    name="postOther"
-                                    value={formData.postOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (formData.postOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom post here..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Date of Birth <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="date" name="dob" value={formData.dob} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Age (years)</label>
-                            <input type="number" name="age" value={formData.age} readOnly />
-                        </div>
-
-                        <div className="field">
-                            <label>Gender <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="gender" value={formData.gender} onChange={handleChange} onClick={() => { if (formData.gender === 'Other') setActiveOtherField('gender'); }} required>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Transgender">Transgender</option>
-                                <option value="Other">{formData.genderOther || 'Other'}</option>
-                            </select>
-                            {formData.gender === 'Other' && (activeOtherField === 'gender' || !formData.genderOther) && (
-                                <input
-                                    type="text"
-                                    name="genderOther"
-                                    value={formData.genderOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (formData.genderOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom gender here..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Father's Name <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Mother's Name <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="motherName" value={formData.motherName} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Blood Group</label>
-                            <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} onClick={() => { if (formData.bloodGroup === 'Other') setActiveOtherField('bloodGroup'); }}>
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
-                                <option value="Other">{formData.bloodGroupOther || 'Other'}</option>
-                            </select>
-                            {formData.bloodGroup === 'Other' && (activeOtherField === 'bloodGroup' || !formData.bloodGroupOther) && (
-                                <input
-                                    type="text"
-                                    name="bloodGroupOther"
-                                    value={formData.bloodGroupOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (formData.bloodGroupOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom blood group..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Marital Status</label>
-                            <select name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
-                                <option value="Single">Single</option>
-                                <option value="Married">Married</option>
-                                <option value="Widowed">Widowed</option>
-                                <option value="Divorced">Divorced</option>
-                            </select>
-                        </div>
-
-                        {formData.maritalStatus === 'Married' && (
+                        <div className="grid-2">
                             <div className="field">
-                                <label>Spouse Name</label>
-                                <input type="text" name="spouseName" value={formData.spouseName} onChange={handleChange} />
+                                <label>Full Name (as in certificates) <span className="mandatory-star">*</span></label>
+                                <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Dr. / Mr. / Ms." required />
                             </div>
-                        )}
 
-                        <div className="field">
-                            <label>Nationality <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="nationality" value={formData.nationality} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Religion <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="religion" value={formData.religion} onChange={handleChange} onClick={() => { if (formData.religion === 'Other') setActiveOtherField('religion'); }} required>
-                                <option value="Hindu">Hindu</option>
-                                <option value="Christian">Christian</option>
-                                <option value="Muslim">Muslim</option>
-                                <option value="Sikh">Sikh</option>
-                                <option value="Jain">Jain</option>
-                                <option value="Other">{formData.religionOther || 'Other'}</option>
-                            </select>
-                            {formData.religion === 'Other' && (activeOtherField === 'religion' || !formData.religionOther) && (
-                                <input
-                                    type="text"
-                                    name="religionOther"
-                                    value={formData.religionOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (formData.religionOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom religion..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Community <span style={{ color: '#ef4444' }}>*</span></label>
-                            <select name="community" value={formData.community} onChange={handleChange} onClick={() => { if (formData.community === 'Other') setActiveOtherField('community'); }} required>
-                                <option value="OC">OC (Open Category)</option>
-                                <option value="BC">BC (Backward Class)</option>
-                                <option value="BCM">BCM (Backward Class Muslim)</option>
-                                <option value="MBC">MBC / DNC</option>
-                                <option value="SC">SC (Scheduled Caste)</option>
-                                <option value="SCA">SCA (SC Arunthathiyar)</option>
-                                <option value="ST">ST (Scheduled Tribe)</option>
-                                <option value="Other">{formData.communityOther || 'Other'}</option>
-                            </select>
-                            {formData.community === 'Other' && (activeOtherField === 'community' || !formData.communityOther) && (
-                                <input
-                                    type="text"
-                                    name="communityOther"
-                                    value={formData.communityOther || ''}
-                                    onChange={handleChange}
-                                    onBlur={() => { if (formData.communityOther?.trim()) setActiveOtherField(null); }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
-                                    placeholder="Type custom community..."
-                                    className="select-other-input"
-                                    autoFocus
-                                    required
-                                />
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Caste <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="caste" value={formData.caste} onChange={handleChange} placeholder="e.g. Nadar, Pillai..." required />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card 2: Contact Information */}
-                <div id="sub-contact" className="section-card">
-                    <div className="section-card-header">
-                        <Phone size={20} color="#3b82f6" /> Contact Information
-                    </div>
-                    <div className="grid-2">
-                        <div className="field">
-                            <label>Email Address (Primary) <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="email" name="email" value={formData.email} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <label>Personal / Alternate Mail ID</label>
-                            <input type="email" name="altEmail" value={formData.altEmail} onChange={handleChange} />
-                        </div>
-
-                        <div className="field">
-                            <label>Mobile Number <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input
-                                type="tel"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                placeholder="10-digit mobile number"
-                                style={{ borderColor: getPhoneError(formData.phone, true) ? '#ef4444' : '' }}
-                                required
-                            />
-                            {getPhoneError(formData.phone, true) && (
-                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-                                    ⚠️ {getPhoneError(formData.phone, true)}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>WhatsApp Number</label>
-                            <input
-                                type="tel"
-                                name="whatsapp"
-                                value={formData.whatsapp}
-                                onChange={handleChange}
-                                placeholder="10-digit WhatsApp number"
-                                style={{ borderColor: (formData.whatsapp && getPhoneError(formData.whatsapp)) ? '#ef4444' : '' }}
-                            />
-                            {formData.whatsapp && getPhoneError(formData.whatsapp) && (
-                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-                                    ⚠️ {getPhoneError(formData.whatsapp)}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Emergency Contact Name</label>
-                            <input type="text" name="emergencyName" value={formData.emergencyName} onChange={handleChange} />
-                        </div>
-
-                        <div className="field">
-                            <label>Emergency Contact No</label>
-                            <input
-                                type="tel"
-                                name="emergencyPhone"
-                                value={formData.emergencyPhone}
-                                onChange={handleChange}
-                                placeholder="10-digit emergency contact"
-                                style={{ borderColor: (formData.emergencyPhone && getPhoneError(formData.emergencyPhone)) ? '#ef4444' : '' }}
-                            />
-                            {formData.emergencyPhone && getPhoneError(formData.emergencyPhone) && (
-                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-                                    ⚠️ {getPhoneError(formData.emergencyPhone)}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="field">
-                            <label>Aadhaar Card Number</label>
-                            <input
-                                type="text"
-                                name="aadhaar"
-                                value={formData.aadhaar}
-                                onChange={handleChange}
-                                placeholder="12-digit Aadhaar"
-                                style={{ borderColor: (formData.aadhaar && getAadhaarError(formData.aadhaar)) ? '#ef4444' : '' }}
-                            />
-                            {formData.aadhaar && getAadhaarError(formData.aadhaar) && (
-                                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
-                                    ⚠️ {getAadhaarError(formData.aadhaar)}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card 3: Address Information */}
-                <div id="sub-address" className="section-card">
-                    <div className="section-card-header">
-                        📍 Address Information
-                    </div>
-                    <div className="grid-2" style={{ marginBottom: '1rem' }}>
-                        <div className="field">
-                            <label>Permanent Address <span style={{ color: '#ef4444' }}>*</span></label>
-                            <textarea name="permanentAddress" rows={3} value={formData.permanentAddress} onChange={handleChange} required />
-                        </div>
-
-                        <div className="field">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                                <label style={{ margin: 0 }}>Communication Address <span style={{ color: '#ef4444' }}>*</span></label>
-                                <label style={{ fontSize: '0.8rem', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600 }}>
-                                    <input
-                                        type="checkbox"
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setFormData((prev) => ({ ...prev, communicationAddress: prev.permanentAddress }));
-                                            }
-                                        }}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                    Same as Permanent Address
+                            <div className="field" id="passport-photo-upload-wrap">
+                                <label>
+                                    Upload Passport Photo {!photoPreview && <span className="mandatory-star">*</span>}
                                 </label>
+
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    marginTop: '0.25rem',
+                                    padding: '0.35rem 0.5rem',
+                                    borderRadius: '10px',
+                                    border: photoMissing ? '2px solid #ef4444' : '1px solid transparent',
+                                    backgroundColor: photoMissing ? '#fef2f2' : 'transparent',
+                                    boxShadow: photoMissing ? '0 0 0 3px rgba(239, 68, 68, 0.25)' : 'none'
+                                }}>
+                                    <label
+                                        htmlFor="passport-photo-upload"
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            padding: '0.45rem 0.85rem',
+                                            background: photoMissing ? '#fee2e2' : 'var(--color-bg-light)',
+                                            border: photoMissing ? '1px solid #fca5a5' : '1px solid var(--color-border)',
+                                            borderRadius: '8px',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600,
+                                            color: photoMissing ? '#991b1b' : 'var(--color-text-main)',
+                                            cursor: isSubmitted ? 'not-allowed' : 'pointer',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                            userSelect: 'none',
+                                            opacity: isSubmitted ? 0.6 : 1
+                                        }}
+                                    >
+                                        Choose File
+                                    </label>
+                                    <input
+                                        id="passport-photo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        disabled={isSubmitted}
+                                        onChange={handlePhotoChange}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: (photoFile || photoPreview) ? '#10b981' : photoMissing ? '#ef4444' : 'var(--color-text-muted)' }}>
+                                        {photoFile ? photoFile.name : photoPreview ? '✓ Photo Uploaded' : photoMissing ? '⚠️ Photo required' : 'No file chosen'}
+                                    </span>
+                                </div>
                             </div>
-                            <textarea name="communicationAddress" rows={3} value={formData.communicationAddress} onChange={handleChange} required />
+
+                            <div className="field">
+                                <label>Applied Date <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="date" name="appliedDate" value={formData.appliedDate} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Department <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select
+                                    value={localDept}
+                                    disabled
+                                    style={{ backgroundColor: 'var(--bg-secondary, #f1f5f9)', cursor: 'not-allowed', opacity: 0.8 }}
+                                >
+                                    <option value="" disabled>Select Department</option>
+                                    {departments.length > 0 ? (
+                                        departments.map(d => (
+                                            <option key={d.id || d.value} value={d.value || d.id}>{d.label || d.name || d.option_label}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="IT">Information Technology</option>
+                                            <option value="CSE">Computer Science &amp; Engineering</option>
+                                            <option value="ECE">Electronics &amp; Communication</option>
+                                            <option value="EEE">Electrical &amp; Electronics</option>
+                                            <option value="MECH">Mechanical Engineering</option>
+                                            <option value="CIVIL">Civil Engineering</option>
+                                            <option value="AIDS">AI &amp; Data Science</option>
+                                            <option value="MATHS">Mathematics</option>
+                                            <option value="PHYSICS">Physics</option>
+                                            <option value="CHEMISTRY">Chemistry</option>
+                                            <option value="TAMIL">Tamil</option>
+                                            <option value="ENGLISH">English</option>
+                                        </>
+                                    )}
+                                </select>
+                                <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem', display: 'block' }}>
+                                    🔒 Locked (Department chosen during registration cannot be changed)
+                                </span>
+                            </div>
+
+                            <div className="field">
+                                <label>Post Applied For <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="post" value={formData.post} onChange={handleChange} onClick={() => { if (formData.post === 'Other') setActiveOtherField('post'); }} disabled={!localDept || isSubmitted} required>
+                                    {!localDept ? (
+                                        <option value="" disabled>Select Department First</option>
+                                    ) : (
+                                        <option value="" disabled>Select post</option>
+                                    )}
+                                    {posts.length > 0 ? (
+                                        posts.map((p, idx) => (
+                                            <option key={p.id || idx} value={p.value || p.option_value}>
+                                                {p.label || p.option_label}
+                                            </option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="Assistant Professor">Assistant Professor</option>
+                                            <option value="Associate Professor">Associate Professor</option>
+                                            <option value="Professor">Professor</option>
+                                            <option value="Lab Assistant">Lab Assistant</option>
+                                            <option value="Administrative Staff">Administrative Staff</option>
+                                            <option value="Other">{formData.postOther || 'Other'}</option>
+                                        </>
+                                    )}
+                                </select>
+                                {formData.post === 'Other' && (activeOtherField === 'post' || !formData.postOther) && (
+                                    <input
+                                        type="text"
+                                        name="postOther"
+                                        value={formData.postOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (formData.postOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom post here..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Date of Birth <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="date" name="dob" value={formData.dob} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Age (years)</label>
+                                <input type="number" name="age" value={formData.age} readOnly />
+                            </div>
+
+                            <div className="field">
+                                <label>Gender <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="gender" value={formData.gender} onChange={handleChange} onClick={() => { if (formData.gender === 'Other') setActiveOtherField('gender'); }} required>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Transgender">Transgender</option>
+                                    <option value="Other">{formData.genderOther || 'Other'}</option>
+                                </select>
+                                {formData.gender === 'Other' && (activeOtherField === 'gender' || !formData.genderOther) && (
+                                    <input
+                                        type="text"
+                                        name="genderOther"
+                                        value={formData.genderOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (formData.genderOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom gender here..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Father's Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Mother's Name <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="motherName" value={formData.motherName} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Blood Group</label>
+                                <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} onClick={() => { if (formData.bloodGroup === 'Other') setActiveOtherField('bloodGroup'); }}>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="Other">{formData.bloodGroupOther || 'Other'}</option>
+                                </select>
+                                {formData.bloodGroup === 'Other' && (activeOtherField === 'bloodGroup' || !formData.bloodGroupOther) && (
+                                    <input
+                                        type="text"
+                                        name="bloodGroupOther"
+                                        value={formData.bloodGroupOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (formData.bloodGroupOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom blood group..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Marital Status</label>
+                                <select name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
+                                    <option value="Single">Single</option>
+                                    <option value="Married">Married</option>
+                                    <option value="Widowed">Widowed</option>
+                                    <option value="Divorced">Divorced</option>
+                                </select>
+                            </div>
+
+                            {formData.maritalStatus === 'Married' && (
+                                <div className="field">
+                                    <label>Spouse Name</label>
+                                    <input type="text" name="spouseName" value={formData.spouseName} onChange={handleChange} />
+                                </div>
+                            )}
+
+                            <div className="field">
+                                <label>Nationality <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="nationality" value={formData.nationality} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Religion <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="religion" value={formData.religion} onChange={handleChange} onClick={() => { if (formData.religion === 'Other') setActiveOtherField('religion'); }} required>
+                                    <option value="Hindu">Hindu</option>
+                                    <option value="Christian">Christian</option>
+                                    <option value="Muslim">Muslim</option>
+                                    <option value="Sikh">Sikh</option>
+                                    <option value="Jain">Jain</option>
+                                    <option value="Other">{formData.religionOther || 'Other'}</option>
+                                </select>
+                                {formData.religion === 'Other' && (activeOtherField === 'religion' || !formData.religionOther) && (
+                                    <input
+                                        type="text"
+                                        name="religionOther"
+                                        value={formData.religionOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (formData.religionOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom religion..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Community <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select name="community" value={formData.community} onChange={handleChange} onClick={() => { if (formData.community === 'Other') setActiveOtherField('community'); }} required>
+                                    <option value="OC">OC (Open Category)</option>
+                                    <option value="BC">BC (Backward Class)</option>
+                                    <option value="BCM">BCM (Backward Class Muslim)</option>
+                                    <option value="MBC">MBC / DNC</option>
+                                    <option value="SC">SC (Scheduled Caste)</option>
+                                    <option value="SCA">SCA (SC Arunthathiyar)</option>
+                                    <option value="ST">ST (Scheduled Tribe)</option>
+                                    <option value="Other">{formData.communityOther || 'Other'}</option>
+                                </select>
+                                {formData.community === 'Other' && (activeOtherField === 'community' || !formData.communityOther) && (
+                                    <input
+                                        type="text"
+                                        name="communityOther"
+                                        value={formData.communityOther || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => { if (formData.communityOther?.trim()) setActiveOtherField(null); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveOtherField(null); } }}
+                                        placeholder="Type custom community..."
+                                        className="select-other-input"
+                                        autoFocus
+                                        required
+                                    />
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Caste <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="caste" value={formData.caste} onChange={handleChange} placeholder="e.g. Nadar, Pillai..." required />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid-2">
-                        <div className="field">
-                            <label>State <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="state" value={formData.state} onChange={handleChange} required />
+                    {/* Card 2: Contact Information */}
+                    <div id="sub-contact" className="section-card">
+                        <div className="section-card-header">
+                            <Phone size={20} color="#3b82f6" /> Contact Information
                         </div>
+                        <div className="grid-2">
+                            <div className="field">
+                                <label>Email Address (Primary) <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+                            </div>
 
-                        <div className="field">
-                            <label>District <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="district" value={formData.district} onChange={handleChange} required />
-                        </div>
+                            <div className="field">
+                                <label>Personal / Alternate Mail ID</label>
+                                <input type="email" name="altEmail" value={formData.altEmail} onChange={handleChange} />
+                            </div>
 
-                        <div className="field">
-                            <label>Pincode <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} required />
+                            <div className="field">
+                                <label>Mobile Number <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    placeholder="10-digit mobile number"
+                                    style={{ borderColor: getPhoneError(formData.phone, true) ? '#ef4444' : '' }}
+                                    required
+                                />
+                                {getPhoneError(formData.phone, true) && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                        ⚠️ {getPhoneError(formData.phone, true)}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>WhatsApp Number</label>
+                                <input
+                                    type="tel"
+                                    name="whatsapp"
+                                    value={formData.whatsapp}
+                                    onChange={handleChange}
+                                    placeholder="10-digit WhatsApp number"
+                                    style={{ borderColor: (formData.whatsapp && getPhoneError(formData.whatsapp)) ? '#ef4444' : '' }}
+                                />
+                                {formData.whatsapp && getPhoneError(formData.whatsapp) && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                        ⚠️ {getPhoneError(formData.whatsapp)}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Emergency Contact Name</label>
+                                <input type="text" name="emergencyName" value={formData.emergencyName} onChange={handleChange} />
+                            </div>
+
+                            <div className="field">
+                                <label>Emergency Contact No</label>
+                                <input
+                                    type="tel"
+                                    name="emergencyPhone"
+                                    value={formData.emergencyPhone}
+                                    onChange={handleChange}
+                                    placeholder="10-digit emergency contact"
+                                    style={{ borderColor: (formData.emergencyPhone && getPhoneError(formData.emergencyPhone)) ? '#ef4444' : '' }}
+                                />
+                                {formData.emergencyPhone && getPhoneError(formData.emergencyPhone) && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                        ⚠️ {getPhoneError(formData.emergencyPhone)}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="field">
+                                <label>Aadhaar Card Number</label>
+                                <input
+                                    type="text"
+                                    name="aadhaar"
+                                    value={formData.aadhaar}
+                                    onChange={handleChange}
+                                    placeholder="12-digit Aadhaar"
+                                    style={{ borderColor: (formData.aadhaar && getAadhaarError(formData.aadhaar)) ? '#ef4444' : '' }}
+                                />
+                                {formData.aadhaar && getAadhaarError(formData.aadhaar) && (
+                                    <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 500 }}>
+                                        ⚠️ {getAadhaarError(formData.aadhaar)}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    {/* Card 3: Address Information */}
+                    <div id="sub-address" className="section-card">
+                        <div className="section-card-header">
+                            📍 Address Information
+                        </div>
+                        <div className="grid-2" style={{ marginBottom: '1rem' }}>
+                            <div className="field">
+                                <label>Permanent Address <span style={{ color: '#ef4444' }}>*</span></label>
+                                <textarea name="permanentAddress" rows={3} value={formData.permanentAddress} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                    <label style={{ margin: 0 }}>Communication Address <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <label style={{ fontSize: '0.8rem', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600 }}>
+                                        <input
+                                            type="checkbox"
+                                            disabled={isSubmitted}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setFormData((prev) => ({ ...prev, communicationAddress: prev.permanentAddress }));
+                                                }
+                                            }}
+                                            style={{ cursor: isSubmitted ? 'not-allowed' : 'pointer' }}
+                                        />
+                                        Same as Permanent Address
+                                    </label>
+                                </div>
+                                <textarea name="communicationAddress" rows={3} value={formData.communicationAddress} onChange={handleChange} required />
+                            </div>
+                        </div>
+
+                        <div className="grid-2">
+                            <div className="field">
+                                <label>State <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="state" value={formData.state} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>District <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="district" value={formData.district} onChange={handleChange} required />
+                            </div>
+
+                            <div className="field">
+                                <label>Pincode <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} required />
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
 
                 {/* Bottom Action Buttons Bar */}
-                < div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-                    <button type="submit" disabled={loading} className="nav-btn secondary" style={{ background: '#0f172a', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '10px' }}>
-                        <Save size={18} /> {loading ? 'Saving...' : 'Save Personal Details'}
-                    </button>
+                <div className="profile-tab-actions">
+                    {!isSubmitted ? (
+                        <button type="submit" disabled={loading} className="nav-btn secondary" style={{ background: '#0f172a', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '10px' }}>
+                            <Save size={18} /> {loading ? 'Saving...' : 'Save Personal Details'}
+                        </button>
+                    ) : (
+                        <span style={{ padding: '0.75rem 1.25rem', background: '#f1f5f9', color: '#64748b', borderRadius: '10px', fontWeight: 600, border: '1px solid #cbd5e1', fontSize: '0.9rem' }}>
+                            🔒 Application Submitted (Edits Locked)
+                        </span>
+                    )}
                     <button
                         type="button"
-                        disabled={loading}
-                        onClick={handleNextClick}
+                        onClick={() => {
+                            if (isSubmitted && onNext) onNext();
+                            else handleNextClick();
+                        }}
                         className="nav-btn primary"
                         style={{ background: '#2563eb', padding: '0.75rem 1.5rem', borderRadius: '10px' }}
                     >
                         Next: Education Details <ArrowRight size={18} />
                     </button>
-                </div >
-            </form >
-        </div >
+                </div>
+            </form>
+        </div>
     );
 };

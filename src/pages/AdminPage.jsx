@@ -439,6 +439,7 @@ export const AdminPage = () => {
     const [sortBy, setSortBy] = useState('score'); // 'score' | 'date' | 'name'
     const [deptFilter, setDeptFilter] = useState('all');
     const [postFilter, setPostFilter] = useState('all');
+    const [genderFilter, setGenderFilter] = useState('all');
     const [deptsList, setDeptsList] = useState([]);
     const [postsList, setPostsList] = useState([]);
     const [postDeptFilter, setPostDeptFilter] = useState('');
@@ -454,10 +455,9 @@ export const AdminPage = () => {
     const [newOptCategory, setNewOptCategory] = useState('department');
     const [newOptLabel, setNewOptLabel] = useState('');
     const [newOptValue, setNewOptValue] = useState('');
+    const [selectedPgDept, setSelectedPgDept] = useState('');
 
     // Dynamic CSV Export State
-    const [exportDept, setExportDept] = useState('all');
-    const [exportPost, setExportPost] = useState('all');
     const [exportFromDate, setExportFromDate] = useState('');
     const [exportToDate, setExportToDate] = useState('');
     const [isExporting, setIsExporting] = useState(false);
@@ -474,8 +474,9 @@ export const AdminPage = () => {
 
         try {
             const params = new URLSearchParams();
-            if (exportDept) params.append('department', exportDept);
-            if (exportPost) params.append('post', exportPost);
+            if (deptFilter && deptFilter !== 'all') params.append('department', deptFilter);
+            if (postFilter && postFilter !== 'all') params.append('post', postFilter);
+            if (genderFilter && genderFilter !== 'all') params.append('gender', genderFilter);
             if (exportFromDate) params.append('fromDate', exportFromDate);
             if (exportToDate) params.append('toDate', exportToDate);
 
@@ -489,7 +490,7 @@ export const AdminPage = () => {
 
             const blob = await response.blob();
             const contentDisposition = response.headers.get('Content-Disposition');
-            let fileName = `Applicants_${exportDept && exportDept !== 'all' ? exportDept : 'All'}_${exportPost && exportPost !== 'all' ? exportPost.replace(/\s+/g, '_') : 'All_Posts'}.csv`;
+            let fileName = `Applicants_${deptFilter && deptFilter !== 'all' ? deptFilter : 'All'}_${postFilter && postFilter !== 'all' ? postFilter.replace(/\s+/g, '_') : 'All_Posts'}.csv`;
             if (contentDisposition && contentDisposition.includes('filename=')) {
                 const match = contentDisposition.match(/filename="?([^"]+)"?/);
                 if (match && match[1]) fileName = match[1];
@@ -509,6 +510,41 @@ export const AdminPage = () => {
             setBanner({ type: 'error', message: 'CSV export error: ' + err.message });
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleExportIndividualCSV = async (email, name) => {
+        if (!email) return;
+        try {
+            setBanner({ type: 'info', message: `Generating candidate report for ${name || email}...` });
+            const response = await fetch(`/api/applicants/export-csv?email=${encodeURIComponent(email)}`);
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({ message: 'Export failed.' }));
+                setBanner({ type: 'error', message: errData.message || 'Failed to generate candidate report.' });
+                return;
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let fileName = `Candidate_Report_${(name || email).trim().replace(/\s+/g, '_')}.csv`;
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match && match[1]) fileName = match[1];
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            setBanner({ type: 'success', message: `✅ Candidate CSV report exported: ${fileName}` });
+        } catch (err) {
+            setBanner({ type: 'error', message: 'Report export error: ' + err.message });
         }
     };
 
@@ -685,7 +721,17 @@ export const AdminPage = () => {
                 postFilter.toLowerCase().includes(app.post.toLowerCase())
             ));
 
-        return matchesSearch && matchesDept && matchesPost;
+        const matchesGender = (() => {
+            if (genderFilter === 'all') return true;
+            const raw = app.gender || app.personal?.gender || app.txt_Gender || '';
+            const g = String(raw).trim().toLowerCase();
+            if (genderFilter === 'male') return g === 'male' || g === 'm' || g.startsWith('male') || g.startsWith('men');
+            if (genderFilter === 'female') return g === 'female' || g === 'f' || g.startsWith('female') || g.startsWith('women');
+            if (genderFilter === 'other') return g === 'transgender' || g === 'other' || g === 'prefer not to say' || (g !== '' && g !== 'male' && g !== 'female');
+            return true;
+        })();
+
+        return matchesSearch && matchesDept && matchesPost && matchesGender;
     });
 
     const sortedApps = [...filteredApps].sort((a, b) => {
@@ -719,18 +765,54 @@ export const AdminPage = () => {
 
     // Toggle Dropdown Option Active Status
     const handleToggleOpt = async (id, currentStatus) => {
+        const isCurrentlyActive = currentStatus === 1 || currentStatus === true || currentStatus === '1';
+        const nextStatus = isCurrentlyActive ? 0 : 1;
+
+        // Optimistically update React state immediately
+        setDropdownOptions((prev) =>
+            prev.map((d) => (d.id === id ? { ...d, is_active: nextStatus } : d))
+        );
+
         try {
             const res = await fetch(`/api/admin/dropdowns/${id}/toggle`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_active: !currentStatus }),
+                body: JSON.stringify({ is_active: !isCurrentlyActive }),
             });
             const data = await res.json();
             if (data.success) {
                 fetchAdminDropdowns();
+            } else {
+                fetchAdminDropdowns();
             }
         } catch (err) {
             console.error('Error toggling dropdown:', err);
+            fetchAdminDropdowns();
+        }
+    };
+
+    const handleToggleOrCreateOpt = async (val, label, opt) => {
+        if (opt) {
+            handleToggleOpt(opt.id, opt.is_active);
+        } else {
+            try {
+                const res = await fetch('/api/admin/dropdowns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category: 'app_section',
+                        option_value: val,
+                        option_label: label,
+                        is_active: 0
+                    }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchAdminDropdowns();
+                }
+            } catch (err) {
+                console.error('Error creating section option:', err);
+            }
         }
     };
 
@@ -821,18 +903,41 @@ export const AdminPage = () => {
         }
     };
 
+    // Helper function to map department names to pg_domain category keys
+    const getPgDomainCategoryKey = (deptName) => {
+        const raw = (deptName || '').toLowerCase().trim();
+        if (raw.includes('ece') || raw.includes('electronics')) return 'pg_domain_ece';
+        if (raw.includes('cse') || raw.includes('computer') || raw.includes('it') || raw.includes('information') || raw.includes('ai') || raw.includes('aids') || raw.includes('artificial') || raw.includes('data science')) return 'pg_domain_cse';
+        if (raw.includes('eee') || raw.includes('electrical')) return 'pg_domain_eee';
+        if (raw.includes('mech')) return 'pg_domain_mech';
+        if (raw.includes('civil')) return 'pg_domain_civil';
+        if (raw.includes('english')) return 'pg_domain_english';
+        if (raw.includes('tamil')) return 'pg_domain_tamil';
+        if (raw.includes('math')) return 'pg_domain_maths';
+        if (raw.includes('physic') || raw === 'phy') return 'pg_domain_physics';
+        if (raw.includes('chem')) return 'pg_domain_chemistry';
+        if (raw.includes('art') || raw.includes('humanities') || raw.includes('s&h')) return 'pg_domain_arts';
+        return `pg_domain_${raw.replace(/[^a-z0-9]/g, '_')}`;
+    };
+
     // Add Option Form Submission
     const handleAddOptSubmit = async (e) => {
         e.preventDefault();
         if (!newOptLabel) return;
         try {
+            let finalCategory = newOptCategory;
+            if (newOptCategory === 'pg_domain') {
+                const targetDept = selectedPgDept || (deptsList && deptsList[0]) || 'Arts & Science';
+                finalCategory = getPgDomainCategoryKey(targetDept);
+            }
+
             const res = await fetch('/api/admin/dropdowns', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    category: newOptCategory,
-                    option_label: newOptLabel,
-                    option_value: newOptValue || newOptLabel,
+                    category: finalCategory,
+                    option_label: newOptLabel.trim(),
+                    option_value: newOptLabel.trim(),
                 }),
             });
             const data = await res.json();
@@ -850,73 +955,76 @@ export const AdminPage = () => {
     const renderCategoryCardMap = (categories) => categories.map((categoryItem) => {
         const catOpts = dropdownOptions.filter((d) => d.category === categoryItem.key);
 
-        const renderOptionRow = (opt) => (
-            <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'var(--color-bg-light)', borderRadius: '6px', border: '1px solid var(--color-border)', gap: '0.5rem' }}>
-                {editingOptId === opt.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
-                        <input
-                            type="text"
-                            value={editingOptLabel}
-                            onChange={(e) => setEditingOptLabel(e.target.value)}
-                            autoFocus
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveEditOpt(opt.id);
-                                if (e.key === 'Escape') setEditingOptId(null);
-                            }}
-                            style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #1d4ed8', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
-                        />
-                        <button type="button" onClick={() => handleSaveEditOpt(opt.id)} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                            <Check size={14} /> Save
-                        </button>
-                        <button type="button" onClick={() => setEditingOptId(null)} style={{ background: '#64748b', color: 'white', border: 'none', borderRadius: '4px', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.78rem' }}>
-                            Cancel
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: opt.is_active ? 'var(--color-text-main)' : 'var(--color-text-muted)', textDecoration: opt.is_active ? 'none' : 'line-through' }}>
-                                {opt.option_label}
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <button
-                                type="button"
-                                onClick={() => handleToggleOpt(opt.id, opt.is_active)}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.3rem',
-                                    padding: '0.25rem 0.6rem',
-                                    borderRadius: '12px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 700,
-                                    border: opt.is_active ? '1px solid #86efac' : '1px solid #cbd5e1',
-                                    background: opt.is_active ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                                    color: opt.is_active ? '#10b981' : '#94a3b8',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
+        const renderOptionRow = (opt) => {
+            const isActive = opt.is_active === 1 || opt.is_active === true || opt.is_active === '1';
+            return (
+                <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: isActive ? 'var(--color-bg-light)' : 'rgba(148, 163, 184, 0.08)', borderRadius: '6px', border: '1px solid var(--color-border)', gap: '0.5rem', opacity: isActive ? 1 : 0.65 }}>
+                    {editingOptId === opt.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+                            <input
+                                type="text"
+                                value={editingOptLabel}
+                                onChange={(e) => setEditingOptLabel(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveEditOpt(opt.id);
+                                    if (e.key === 'Escape') setEditingOptId(null);
                                 }}
-                                title={opt.is_active ? 'Click to Disable this option' : 'Click to Enable this option'}
-                            >
-                                {opt.is_active ? <ToggleRight size={16} color="#10b981" /> : <ToggleLeft size={16} color="#94a3b8" />}
-                                {opt.is_active ? 'Active' : 'Disabled'}
+                                style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #1d4ed8', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                            />
+                            <button type="button" onClick={() => handleSaveEditOpt(opt.id)} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <Check size={14} /> Save
                             </button>
-
-                            <button
-                                type="button"
-                                onClick={() => handleDeleteOpt(opt)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.2rem' }}
-                                title="Delete option"
-                            >
-                                <Trash2 size={15} />
+                            <button type="button" onClick={() => setEditingOptId(null)} style={{ background: '#64748b', color: 'white', border: 'none', borderRadius: '4px', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.78rem' }}>
+                                Cancel
                             </button>
                         </div>
-                    </>
-                )}
-            </div>
-        );
+                    ) : (
+                        <>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600, fontSize: '0.88rem', color: isActive ? 'var(--color-text-main)' : 'var(--color-text-muted)', textDecoration: isActive ? 'none' : 'line-through' }}>
+                                    {opt.option_label}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleToggleOpt(opt.id, isActive)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.3rem',
+                                        padding: '0.25rem 0.6rem',
+                                        borderRadius: '12px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        border: isActive ? '1px solid #86efac' : '1px solid #cbd5e1',
+                                        background: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                                        color: isActive ? '#10b981' : '#94a3b8',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    title={isActive ? 'Click to Disable this option' : 'Click to Enable this option'}
+                                >
+                                    {isActive ? <ToggleRight size={16} color="#10b981" /> : <ToggleLeft size={16} color="#94a3b8" />}
+                                    {isActive ? 'Active' : 'Disabled'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteOpt(opt)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.2rem' }}
+                                    title="Delete option"
+                                >
+                                    <Trash2 size={15} />
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
 
         return (
             <div key={categoryItem.key} className="form-card" style={{ padding: '1.25rem' }}>
@@ -1086,6 +1194,16 @@ export const AdminPage = () => {
 
                         <button
                             type="button"
+                            className={`sidebar-menu-item ${activeTab === 'tab_manager' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('tab_manager')}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 600 }}>
+                                <ToggleRight size={18} /> Profile Tab Manager
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
                             className={`sidebar-menu-item ${activeTab === 'dropdowns' ? 'active' : ''}`}
                             onClick={() => setActiveTab('dropdowns')}
                         >
@@ -1164,152 +1282,232 @@ export const AdminPage = () => {
 
             {/* Main Content Area */}
             <main className={`profile-main-content ${!isSidebarOpen ? 'sidebar-collapsed' : ''}`}>
-                <Banner type={banner.type} message={banner.message} />
+                <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
 
                 {/* TAB 1: Applications Viewer */}
                 {
                     activeTab === 'apps' && (
                         <div>
-                            {/* Search and Filters Card Container */}
-                            <div className="panel-toolbar-card">
-                                <div className="panel-toolbar">
-                                    <div className="search-wrap">
-                                        <input
-                                            type="text"
-                                            placeholder="Search by candidate name, email, department, or post..."
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div className="filter-group">
-                                        <label className="filter-label">Sort By:</label>
-                                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                                            <option value="score">🏆 Rank: Highest Score First</option>
-                                            <option value="date">📅 Date Registered (Newest)</option>
-                                            <option value="name">👤 Name (A - Z)</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="filter-group">
-                                        <label className="filter-label">Department:</label>
-                                        <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
-                                            <option value="all">All Departments ({deptsList.length})</option>
-                                            {deptsList.map((d, i) => (
-                                                <option key={i} value={d}>{d}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="filter-group">
-                                        <label className="filter-label">Designation / Post Call:</label>
-                                        <select value={postFilter} onChange={(e) => setPostFilter(e.target.value)}>
-                                            <option value="all">All Designations ({postsList.length})</option>
-                                            {postsList.map((p, i) => (
-                                                <option key={i} value={p}>{p}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Dynamic CSV Export Toolbar Panel */}
-                            <div className="panel-toolbar-card" style={{ marginBottom: '1rem', padding: '1.1rem 1.25rem', border: '1px solid #7dd3fc', background: 'rgba(2, 132, 199, 0.03)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {/* Unified Search, Filter & Dynamic Database CSV Export Toolbar Panel */}
+                            <div className="panel-toolbar-card" style={{ marginBottom: '1.25rem', padding: '1.25rem', border: '1px solid #7dd3fc', background: 'rgba(2, 132, 199, 0.03)' }}>
+                                {/* Header Title Bar */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid rgba(2, 132, 199, 0.2)', paddingBottom: '0.65rem' }}>
                                     <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--color-brand-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <Download size={18} color="#0284c7" /> Dynamic Database Applicant CSV Export
+                                        <Download size={18} color="#0284c7" /> Dynamic Database Applicant CSV Export &amp; Filters
                                     </h3>
                                     <span style={{ fontSize: '0.76rem', color: '#0284c7', background: 'rgba(2, 132, 199, 0.12)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 700, border: '1px solid #7dd3fc' }}>
                                         📊 Database Source of Truth
                                     </span>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.85rem', alignItems: 'end' }}>
-                                    <div className="filter-group" style={{ margin: 0 }}>
-                                        <label className="filter-label" style={{ fontWeight: 700 }}>Department Filter:</label>
-                                        <select value={exportDept} onChange={(e) => setExportDept(e.target.value)} style={{ width: '100%', height: '38px' }}>
-                                            <option value="all">All Departments ({deptsList.length})</option>
-                                            {deptsList.map((d, i) => (
-                                                <option key={i} value={d}>{d}</option>
-                                            ))}
-                                        </select>
+                                {/* Controls Layout */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {/* Top Row: Search Input */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', width: '100%' }}>
+                                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0 }}>
+                                            🔍 Candidate Search:
+                                        </label>
+                                        <div className="search-wrap" style={{ width: '100%' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Search by candidate name, email, department, or post..."
+                                                value={search}
+                                                onChange={(e) => setSearch(e.target.value)}
+                                                style={{ width: '100%', height: '38px' }}
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div className="filter-group" style={{ margin: 0 }}>
-                                        <label className="filter-label" style={{ fontWeight: 700 }}>Designation Filter:</label>
-                                        <select value={exportPost} onChange={(e) => setExportPost(e.target.value)} style={{ width: '100%', height: '38px' }}>
-                                            <option value="all">All Designations ({postsList.length})</option>
-                                            {postsList.map((p, i) => (
-                                                <option key={i} value={p}>{p}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="filter-group" style={{ margin: 0 }}>
-                                        <label className="filter-label" style={{ fontWeight: 700 }}>From Date:</label>
-                                        <input
-                                            type="date"
-                                            value={exportFromDate}
-                                            onChange={(e) => setExportFromDate(e.target.value)}
-                                            style={{ width: '100%', height: '38px', padding: '0.45rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
-                                        />
-                                    </div>
-
-                                    <div className="filter-group" style={{ margin: 0 }}>
-                                        <label className="filter-label" style={{ fontWeight: 700 }}>To Date:</label>
-                                        <input
-                                            type="date"
-                                            value={exportToDate}
-                                            onChange={(e) => setExportToDate(e.target.value)}
-                                            style={{ width: '100%', height: '38px', padding: '0.45rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
-                                        />
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                        <button
-                                            type="button"
-                                            onClick={handleExportCSV}
-                                            disabled={isExporting}
-                                            className="nav-btn primary"
-                                            style={{ flex: 1, height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.86rem', whiteSpace: 'nowrap' }}
-                                        >
-                                            <Download size={16} /> {isExporting ? 'Generating CSV...' : 'Export CSV'}
-                                        </button>
-                                        {(exportFromDate || exportToDate || exportDept !== 'all' || exportPost !== 'all') && (
-                                            <button
-                                                type="button"
-                                                onClick={() => { setExportDept('all'); setExportPost('all'); setExportFromDate(''); setExportToDate(''); }}
-                                                className="nav-btn"
-                                                style={{ height: '38px', padding: '0 0.65rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}
-                                                title="Reset Export Filters"
+                                    {/* Bottom Grid: Sort, Department, Designation, Dates, Actions */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.85rem', alignItems: 'end' }}>
+                                        {/* Sort By */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                Sort By:
+                                            </label>
+                                            <select
+                                                value={sortBy}
+                                                onChange={(e) => setSortBy(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0 0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
                                             >
-                                                Reset
-                                            </button>
-                                        )}
+                                                <option value="score">🏆 Rank: Highest Score First</option>
+                                                <option value="date">📅 Date Registered (Newest)</option>
+                                                <option value="name">👤 Name (A - Z)</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Department Filter */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                Department Filter:
+                                            </label>
+                                            <select
+                                                value={deptFilter}
+                                                onChange={(e) => setDeptFilter(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0 0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                                            >
+                                                <option value="all">All Departments ({deptsList.length})</option>
+                                                {deptsList.map((d, i) => (
+                                                    <option key={i} value={d}>{d}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Designation Filter */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                Designation Filter:
+                                            </label>
+                                            <select
+                                                value={postFilter}
+                                                onChange={(e) => setPostFilter(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0 0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                                            >
+                                                <option value="all">All Designations ({postsList.length})</option>
+                                                {postsList.map((p, i) => (
+                                                    <option key={i} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Gender Filter */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                Gender Filter:
+                                            </label>
+                                            <select
+                                                value={genderFilter}
+                                                onChange={(e) => setGenderFilter(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0 0.5rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                                            >
+                                                <option value="all">All Genders</option>
+                                                <option value="male">👨 Male Only</option>
+                                                <option value="female">👩 Female Only</option>
+                                                <option value="other">⚧ Transgender / Other</option>
+                                            </select>
+                                        </div>
+
+                                        {/* From Date */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                From Date:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={exportFromDate}
+                                                onChange={(e) => setExportFromDate(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0.45rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                                            />
+                                        </div>
+
+                                        {/* To Date */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-main)', margin: 0, whiteSpace: 'nowrap' }}>
+                                                To Date:
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={exportToDate}
+                                                onChange={(e) => setExportToDate(e.target.value)}
+                                                style={{ width: '100%', height: '38px', padding: '0.45rem', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '0.85rem', background: 'var(--color-card-bg)', color: 'var(--color-text-main)' }}
+                                            />
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'transparent', margin: 0, userSelect: 'none' }}>
+                                                Actions
+                                            </label>
+                                            <div style={{ display: 'flex', gap: '0.4rem', height: '38px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleExportCSV}
+                                                    disabled={isExporting}
+                                                    className="nav-btn primary"
+                                                    style={{ flex: 1, height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.84rem', whiteSpace: 'nowrap' }}
+                                                >
+                                                    <Download size={16} /> {isExporting ? 'Generating...' : 'Export CSV'}
+                                                </button>
+                                                {(search || deptFilter !== 'all' || postFilter !== 'all' || genderFilter !== 'all' || exportFromDate || exportToDate || sortBy !== 'score') && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setSearch(''); setSortBy('score'); setDeptFilter('all'); setPostFilter('all'); setGenderFilter('all'); setExportFromDate(''); setExportToDate(''); }}
+                                                        className="nav-btn"
+                                                        style={{ height: '38px', padding: '0 0.65rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}
+                                                        title="Reset All Filters"
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Filter Summary Banner */}
-                            <div style={{ background: 'var(--color-card-bg)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                                <div>
-                                    <span style={{ fontWeight: 700, color: 'var(--color-text-main)' }}>Filtered View: </span>
-                                    <span style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
-                                        {deptFilter === 'all' ? 'All Departments' : `Dept: ${deptFilter}`}
-                                    </span>
-                                    <span style={{ color: 'var(--color-text-muted)', margin: '0 0.5rem' }}>•</span>
-                                    <span style={{ color: '#0284c7', fontWeight: 600 }}>
-                                        {postFilter === 'all' ? 'All Designations' : `Post: ${postFilter}`}
-                                    </span>
-                                    <span style={{ color: 'var(--color-text-muted)', margin: '0 0.5rem' }}>•</span>
-                                    <span style={{ color: 'var(--color-text-muted)' }}>
-                                        Found <strong>{sortedApps.length}</strong> applicant(s)
-                                    </span>
-                                </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                    Sorted by: <strong>{sortBy === 'score' ? 'Score & Ranks' : sortBy === 'name' ? 'Name A-Z' : 'Registration Date'}</strong>
-                                </span>
-                            </div>
+                            {(() => {
+                                let maleCount = 0;
+                                let femaleCount = 0;
+                                let otherCount = 0;
+                                let unspecifiedCount = 0;
+
+                                sortedApps.forEach(a => {
+                                    const raw = a.gender || a.personal?.gender || a.txt_Gender || '';
+                                    const g = String(raw).trim().toLowerCase();
+                                    if (g === 'male' || g === 'm' || g.startsWith('male') || g.startsWith('men')) {
+                                        maleCount++;
+                                    } else if (g === 'female' || g === 'f' || g.startsWith('female') || g.startsWith('women')) {
+                                        femaleCount++;
+                                    } else if (g === 'transgender' || g === 'other' || g === 'prefer not to say') {
+                                        otherCount++;
+                                    } else if (g !== '') {
+                                        otherCount++;
+                                    } else {
+                                        unspecifiedCount++;
+                                    }
+                                });
+
+                                return (
+                                    <div style={{ background: 'var(--color-card-bg)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--color-border)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                            <span style={{ fontWeight: 700, color: 'var(--color-text-main)' }}>Filtered View: </span>
+                                            <span style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
+                                                {deptFilter === 'all' ? 'All Departments' : `Dept: ${deptFilter}`}
+                                            </span>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>•</span>
+                                            <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                                                {postFilter === 'all' ? 'All Designations' : `Post: ${postFilter}`}
+                                            </span>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>•</span>
+                                            <span style={{ color: 'var(--color-text-muted)' }}>
+                                                Found <strong>{sortedApps.length}</strong> applicant(s)
+                                            </span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.25rem' }}>
+                                                <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', fontWeight: 700, fontSize: '0.78rem', border: '1px solid rgba(37, 99, 235, 0.2)' }}>
+                                                    👨 Male: {maleCount}
+                                                </span>
+                                                <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', background: 'rgba(236, 72, 153, 0.1)', color: '#db2777', fontWeight: 700, fontSize: '0.78rem', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
+                                                    👩 Female: {femaleCount}
+                                                </span>
+                                                {otherCount > 0 && (
+                                                    <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', background: 'rgba(107, 114, 128, 0.1)', color: '#4b5563', fontWeight: 700, fontSize: '0.78rem', border: '1px solid rgba(107, 114, 128, 0.2)' }}>
+                                                        ⚧ Other: {otherCount}
+                                                    </span>
+                                                )}
+                                                {unspecifiedCount > 0 && (
+                                                    <span style={{ padding: '0.15rem 0.55rem', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', fontWeight: 700, fontSize: '0.78rem', border: '1px solid rgba(245, 158, 11, 0.2)' }} title="Applicants without specified gender details">
+                                                        ⚠️ Unspecified: {unspecifiedCount}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                            Sorted by: <strong>{sortBy === 'score' ? 'Score & Ranks' : sortBy === 'name' ? 'Name A-Z' : 'Registration Date'}</strong>
+                                        </span>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="table-card">
                                 <table className="admin-table">
@@ -1371,6 +1569,37 @@ export const AdminPage = () => {
                                                     <td>
                                                         <div style={{ fontWeight: 600, color: 'var(--color-text-main)' }}>{app.full_name || 'Incomplete Profile'}</div>
                                                         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{app.email}</div>
+                                                        {(() => {
+                                                            const rawG = app.gender || app.personal?.gender || app.txt_Gender || app.txt_gender || app.gender_other || '';
+                                                            const gLow = String(rawG).trim().toLowerCase();
+                                                            if (gLow === 'male' || gLow === 'm' || gLow.startsWith('male') || gLow.startsWith('men')) {
+                                                                return (
+                                                                    <span style={{ display: 'inline-block', marginTop: '0.2rem', padding: '0.1rem 0.45rem', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', fontWeight: 600, fontSize: '0.72rem', border: '1px solid rgba(37, 99, 235, 0.2)' }}>
+                                                                        👨 Male
+                                                                    </span>
+                                                                );
+                                                            }
+
+                                                            if (gLow === 'female' || gLow === 'f' || gLow.startsWith('female') || gLow.startsWith('women')) {
+                                                                return (
+                                                                    <span style={{ display: 'inline-block', marginTop: '0.2rem', padding: '0.1rem 0.45rem', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.1)', color: '#db2777', fontWeight: 600, fontSize: '0.72rem', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
+                                                                        👩 Female
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            if (rawG) {
+                                                                return (
+                                                                    <span style={{ display: 'inline-block', marginTop: '0.2rem', padding: '0.1rem 0.45rem', borderRadius: '10px', background: 'rgba(107, 114, 128, 0.1)', color: '#4b5563', fontWeight: 600, fontSize: '0.72rem', border: '1px solid rgba(107, 114, 128, 0.2)' }}>
+                                                                        ⚧ {rawG}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <span style={{ display: 'inline-block', marginTop: '0.2rem', padding: '0.1rem 0.45rem', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', fontWeight: 600, fontSize: '0.72rem', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                                                                    ⚠️ Unspecified
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td>
                                                         <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(29, 78, 216, 0.15)', color: 'var(--color-brand-primary)', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(29, 78, 216, 0.25)' }}>
@@ -1383,20 +1612,151 @@ export const AdminPage = () => {
                                                     <td style={{ color: 'var(--color-text-main)' }}>{app.phone || 'N/A'}</td>
                                                     <td style={{ color: 'var(--color-text-main)' }}>{app.registered_at ? app.registered_at.substring(0, 10) : 'N/A'}</td>
                                                     <td>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openCandidateModal(app.email)}
-                                                            className="nav-btn primary"
-                                                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                                        >
-                                                            <Eye size={14} /> View Details
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openCandidateModal(app.email)}
+                                                                className="nav-btn primary"
+                                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                                            >
+                                                                <Eye size={14} /> View Details
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleExportIndividualCSV(app.email, app.full_name)}
+                                                                className="nav-btn"
+                                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid #7dd3fc' }}
+                                                                title="Download Individual Candidate Report (80 Attributes CSV)"
+                                                            >
+                                                                <Download size={14} /> Download Report
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    )
+                }
+
+                {/* TAB 1.5: Profile Tab Manager */}
+                {
+                    activeTab === 'tab_manager' && (
+                        <div>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <ToggleRight size={22} color="#5551ff" /> Candidate Profile Tab &amp; Sub-Division Manager
+                                </h3>
+                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                                    Enable or disable candidate profile form tabs and sub-sections based on active recruitment requirements.
+                                </p>
+                            </div>
+
+                            {/* Section 1: Main Candidate Profile Tabs */}
+                            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.98rem', fontWeight: 700, color: '#1e293b' }}>
+                                    📌 Main Profile Tabs
+                                </h4>
+                                <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.82rem', color: '#64748b' }}>
+                                    Control visibility of major profile sections on the candidate portal.
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                                    {[
+                                        { val: 'section_experience', label: 'Work & Teaching Experience', desc: 'Optional tab for candidate employment and teaching records.' },
+                                        { val: 'section_research', label: 'Research & Consultancy Projects', desc: 'Optional tab for research projects, consultancy, and publications.' },
+                                        { val: 'section_certifications', label: 'Certifications & Achievements', desc: 'Optional tab for candidate NPTEL/SWAYAM and professional certifications.' }
+                                    ].map((item) => {
+                                        const opt = dropdownOptions.find(o => o.category === 'app_section' && o.option_value === item.val);
+                                        const isActive = opt ? (opt.is_active === 1 || opt.is_active === true || opt.is_active === '1') : true;
+
+                                        return (
+                                            <div key={item.val} style={{ border: `1px solid ${isActive ? '#b4530933' : '#e2e8f0'}`, borderRadius: '12px', padding: '1.1rem', background: isActive ? '#f8fafc' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{item.label}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleOrCreateOpt(item.val, item.label, opt)}
+                                                            style={{
+                                                                background: isActive ? '#dcfce7' : '#f1f5f9',
+                                                                color: isActive ? '#166534' : '#64748b',
+                                                                border: `1px solid ${isActive ? '#86efac' : '#cbd5e1'}`,
+                                                                padding: '0.25rem 0.65rem',
+                                                                borderRadius: '20px',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.35rem'
+                                                            }}
+                                                        >
+                                                            {isActive ? <ToggleRight size={16} color="#166534" /> : <ToggleLeft size={16} color="#64748b" />}
+                                                            {isActive ? 'Enabled' : 'Disabled'}
+                                                        </button>
+                                                    </div>
+                                                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', lineHeight: 1.4 }}>{item.desc}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Section 2: Research & Consultancy Sub-Divisions */}
+                            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.98rem', fontWeight: 700, color: '#1e293b' }}>
+                                    🔬 Research &amp; Consultancy Sub-Divisions
+                                </h4>
+                                <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.82rem', color: '#64748b' }}>
+                                    Enable or disable individual sub-sections inside the Research &amp; Consultancy tab on the candidate side.
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                                    {[
+                                        { val: 'sub_section_journals', label: 'Journal Publications (SCI & Scopus)', desc: 'SCI / Scopus journal publications table and data entry form.' },
+                                        { val: 'sub_section_projects', label: 'Funded Research Projects', desc: 'Funded research projects table and details.' },
+                                        { val: 'sub_section_consultancy', label: 'Funded Consultancy Assignments', desc: 'Funded consultancy works and assignments table.' }
+                                    ].map((item) => {
+                                        const opt = dropdownOptions.find(o => o.category === 'app_section' && o.option_value === item.val);
+                                        const isActive = opt ? (opt.is_active === 1 || opt.is_active === true || opt.is_active === '1') : true;
+
+                                        return (
+                                            <div key={item.val} style={{ border: `1px solid ${isActive ? '#b4530933' : '#e2e8f0'}`, borderRadius: '12px', padding: '1.1rem', background: isActive ? '#f8fafc' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{item.label}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleOrCreateOpt(item.val, item.label, opt)}
+                                                            style={{
+                                                                background: isActive ? '#dcfce7' : '#f1f5f9',
+                                                                color: isActive ? '#166534' : '#64748b',
+                                                                border: `1px solid ${isActive ? '#86efac' : '#cbd5e1'}`,
+                                                                padding: '0.25rem 0.65rem',
+                                                                borderRadius: '20px',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.35rem'
+                                                            }}
+                                                        >
+                                                            {isActive ? <ToggleRight size={16} color="#166534" /> : <ToggleLeft size={16} color="#64748b" />}
+                                                            {isActive ? 'Enabled' : 'Disabled'}
+                                                        </button>
+                                                    </div>
+                                                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', lineHeight: 1.4 }}>{item.desc}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     )
@@ -1424,6 +1784,7 @@ export const AdminPage = () => {
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
                                 {renderCategoryCardMap([
+                                    { key: 'app_section', title: '📑 Candidate Profile Optional Sections', desc: 'Enable or disable candidate form sections (Experience, Research, Certifications)' },
                                     { key: 'department', title: '🏢 Departments', desc: 'Active academic & administrative departments' },
                                     { key: 'post', title: '💼 Posts / Designations', desc: 'Faculty & staff designations' },
                                     { key: 'phd_status', title: '📜 Ph.D Statuses', desc: 'Ph.D completion states' },
@@ -1446,7 +1807,11 @@ export const AdminPage = () => {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setAddOptModalOpen(true)}
+                                    onClick={() => {
+                                        setNewOptCategory('pg_domain');
+                                        if (deptsList && deptsList.length > 0) setSelectedPgDept(deptsList[0]);
+                                        setAddOptModalOpen(true);
+                                    }}
                                     className="nav-btn primary"
                                 >
                                     <Plus size={16} /> Add Domain Option
@@ -1454,13 +1819,46 @@ export const AdminPage = () => {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                                {renderCategoryCardMap([
-                                    { key: 'pg_domain_ece', title: '📡 ECE PG Specializations', desc: 'Embedded Systems, VLSI Design, Communication Systems, etc.' },
-                                    { key: 'pg_domain_cse', title: '💻 CSE / IT PG Specializations', desc: 'Computational Intelligence, AI, Blockchain, Full Stack, etc.' },
-                                    { key: 'pg_domain_eee', title: '⚡ EEE PG Specializations', desc: 'Power Electronics, Power Systems, EV Tech, etc.' },
-                                    { key: 'pg_domain_mech', title: '⚙️ MECH PG Specializations', desc: 'CAD / CAM, Thermal Engineering, Mechatronics, etc.' },
-                                    { key: 'pg_domain_civil', title: '🏗️ CIVIL PG Specializations', desc: 'Structural, Environmental, Construction Management, etc.' },
-                                ])}
+                                {(() => {
+                                    const cards = [];
+                                    const seen = new Set();
+                                    (deptsList || []).filter(d => {
+                                        const dLow = String(d || '').toLowerCase().trim();
+                                        return !dLow.includes('admin') && !dLow.includes('office') && !dLow.includes('non-teaching') && !dLow.includes('non teaching') && !dLow.includes('library') && !dLow.includes('physical ed') && !dLow.includes('maintenance') && !dLow.includes('s&h') && !dLow.includes('science & humanities') && !dLow.includes('arts') && !dLow.includes('humanities');
+                                    }).forEach(d => {
+                                        const key = getPgDomainCategoryKey(d);
+                                        if (!seen.has(key)) {
+                                            seen.add(key);
+                                            let icon = '🎓';
+                                            const dLow = d.toLowerCase();
+                                            if (dLow.includes('tamil')) icon = '📜';
+                                            else if (dLow.includes('english')) icon = '📖';
+                                            else if (dLow.includes('math')) icon = '📐';
+                                            else if (dLow.includes('physic')) icon = '🔬';
+                                            else if (dLow.includes('chem')) icon = '🧪';
+                                            else if (dLow.includes('ece')) icon = '📡';
+                                            else if (dLow.includes('cse') || dLow.includes('computer')) icon = '💻';
+                                            else if (dLow.includes('eee')) icon = '⚡';
+                                            else if (dLow.includes('mech')) icon = '⚙️';
+                                            else if (dLow.includes('civil')) icon = '🏗️';
+
+                                            const title = key === 'pg_domain_cse'
+                                                ? '💻 CSE, IT & AI&DS PG SPECIALIZATIONS'
+                                                : `${icon} ${d.toUpperCase()} PG SPECIALIZATIONS`;
+                                            const desc = key === 'pg_domain_cse'
+                                                ? 'Manage PG specialization options for CSE, IT & AI&DS departments.'
+                                                : `Manage PG specialization options for ${d} department.`;
+
+                                            cards.push({
+                                                key,
+                                                title,
+                                                desc
+                                            });
+                                        }
+                                    });
+
+                                    return renderCategoryCardMap(cards);
+                                })()}
                             </div>
                         </div>
                     )
@@ -1636,14 +2034,6 @@ export const AdminPage = () => {
                                         <div className="detail-value">{selectedApp.phd_details?.no_of_awards ?? 0}</div>
                                     </div>
                                     <div className="detail-item">
-                                        <div className="detail-label">Funded Projects</div>
-                                        <div className="detail-value">{selectedApp.phd_details?.no_of_funded_projects ?? 0}</div>
-                                    </div>
-                                    <div className="detail-item">
-                                        <div className="detail-label">Funded Consultancy</div>
-                                        <div className="detail-value">{selectedApp.phd_details?.no_of_funded_consultancy ?? 0}</div>
-                                    </div>
-                                    <div className="detail-item">
                                         <div className="detail-label">Patents Granted/Filed</div>
                                         <div className="detail-value">{selectedApp.phd_details?.patents ?? 0}</div>
                                     </div>
@@ -1651,9 +2041,87 @@ export const AdminPage = () => {
                                         <div className="detail-label">Publications (SCI/Scopus)</div>
                                         <div className="detail-value">{selectedApp.phd_details?.publications ?? 0}</div>
                                     </div>
-                                    <div className="detail-item">
-                                        <div className="detail-label">Guided Ph.D Scholars</div>
-                                        <div className="detail-value">{selectedApp.phd_details?.guided_phd_scholars ?? 0}</div>
+                                </div>
+
+                                {/* Funded Research Projects & Consultancy */}
+                                <h4 style={{ fontWeight: 700, color: 'var(--color-text-main)', marginBottom: '0.5rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.4rem' }}>
+                                    📘 Funded Research Projects &amp; Consultancy Works
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    {/* Funded Research Projects */}
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0284c7', marginBottom: '0.4rem' }}>
+                                            • Funded Research Projects ({(selectedApp.research_projects || []).length})
+                                        </div>
+                                        {(selectedApp.research_projects || []).length === 0 ? (
+                                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>No funded research projects submitted.</p>
+                                        ) : (
+                                            (selectedApp.research_projects || []).map((p, idx) => (
+                                                <div key={idx} style={{ padding: '0.65rem 0.85rem', background: 'var(--color-bg-light)', borderRadius: '8px', fontSize: '0.88rem', border: '1px solid var(--color-border)', marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <strong style={{ color: 'var(--color-text-main)' }}>{p.project_title || 'Untitled Project'}</strong>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                                                                PI: <strong>{p.pi_name || 'N/A'}</strong> | Co-PI: {p.co_pi_names || 'None'} | Org: {p.organization_name || p.funding_agency || 'N/A'} | Industry: {p.industry || 'N/A'}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.78rem', color: '#475569', marginTop: '0.15rem' }}>
+                                                                Duration: {p.from_date || ''} {p.to_date ? `- ${p.to_date}` : ''} | Amount: <strong style={{ color: '#10b981' }}>₹{p.amount ? Number(p.amount).toLocaleString('en-IN') : 0}</strong>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                            {p.proof_doc && (
+                                                                <a href={p.proof_doc} target="_blank" rel="noreferrer" style={{ padding: '0.25rem 0.55rem', background: 'rgba(2, 132, 199, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                                    📄 Proof &rarr;
+                                                                </a>
+                                                            )}
+                                                            {p.yearly_report_doc && (
+                                                                <a href={p.yearly_report_doc} target="_blank" rel="noreferrer" style={{ padding: '0.25rem 0.55rem', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                                    📊 Report &rarr;
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+
+                                    {/* Funded Consultancy Works */}
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#8b5cf6', marginBottom: '0.4rem' }}>
+                                            • Funded Consultancy Works ({(selectedApp.funded_consultancy || []).length})
+                                        </div>
+                                        {(selectedApp.funded_consultancy || []).length === 0 ? (
+                                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>No funded consultancy works submitted.</p>
+                                        ) : (
+                                            (selectedApp.funded_consultancy || []).map((c, idx) => (
+                                                <div key={idx} style={{ padding: '0.65rem 0.85rem', background: 'var(--color-bg-light)', borderRadius: '8px', fontSize: '0.88rem', border: '1px solid var(--color-border)', marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <strong style={{ color: 'var(--color-text-main)' }}>{c.consultancy_title || 'Untitled Consultancy'}</strong>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                                                                PI: <strong>{c.pi_name || 'N/A'}</strong> | Co-PI: {c.co_pi_names || 'None'} | Client Org: {c.client_org || c.organization_name || 'N/A'} | Industry: {c.industry || 'N/A'}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.78rem', color: '#475569', marginTop: '0.15rem' }}>
+                                                                Duration: {c.from_date || ''} {c.to_date ? `- ${c.to_date}` : ''} | Amount: <strong style={{ color: '#10b981' }}>₹{c.amount ? Number(c.amount).toLocaleString('en-IN') : 0}</strong>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                            {c.proof_doc && (
+                                                                <a href={c.proof_doc} target="_blank" rel="noreferrer" style={{ padding: '0.25rem 0.55rem', background: 'rgba(2, 132, 199, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                                    📄 Proof &rarr;
+                                                                </a>
+                                                            )}
+                                                            {c.yearly_report_doc && (
+                                                                <a href={c.yearly_report_doc} target="_blank" rel="noreferrer" style={{ padding: '0.25rem 0.55rem', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                                    📊 Report &rarr;
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -1712,7 +2180,15 @@ export const AdminPage = () => {
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExportIndividualCSV(selectedApp.email || selectedApp.personal?.user_email, selectedApp.personal?.full_name)}
+                                        className="nav-btn"
+                                        style={{ padding: '0.55rem 1rem', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid #7dd3fc', fontWeight: 700 }}
+                                    >
+                                        <Download size={16} /> Download CSV Report (80 Attributes)
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -1752,29 +2228,48 @@ export const AdminPage = () => {
                                     <div className="field">
                                         <label>Dropdown Category</label>
                                         <select value={newOptCategory} onChange={(e) => setNewOptCategory(e.target.value)}>
-                                            <option value="pg_domain">🎓 PG Specialization Domains</option>
                                             <option value="department">🏢 Departments</option>
+                                            <option value="pg_domain">🎓 PG Specialization Domains</option>
                                             <option value="post">💼 Posts / Designations</option>
                                             <option value="phd_status">📜 Ph.D Statuses</option>
                                         </select>
                                     </div>
+                                    {newOptCategory === 'pg_domain' && (
+                                        <div className="field">
+                                            <label>Target Department</label>
+                                            <select
+                                                value={selectedPgDept || (deptsList && deptsList[0]) || ''}
+                                                onChange={(e) => setSelectedPgDept(e.target.value)}
+                                            >
+                                                {(deptsList || []).filter(d => {
+                                                    const dLow = String(d || '').toLowerCase().trim();
+                                                    return !dLow.includes('admin') && !dLow.includes('office') && !dLow.includes('non-teaching') && !dLow.includes('non teaching') && !dLow.includes('library') && !dLow.includes('physical ed') && !dLow.includes('maintenance') && !dLow.includes('s&h') && !dLow.includes('science & humanities') && !dLow.includes('arts') && !dLow.includes('humanities');
+                                                }).map((d, i) => (
+                                                    <option key={i} value={d}>{d}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     <div className="field">
-                                        <label>Option Display Label</label>
+                                        <label>
+                                            {newOptCategory === 'department'
+                                                ? 'Department Name'
+                                                : newOptCategory === 'pg_domain'
+                                                    ? 'Specialization Name'
+                                                    : 'Option Name'}
+                                        </label>
                                         <input
                                             type="text"
                                             value={newOptLabel}
                                             onChange={(e) => setNewOptLabel(e.target.value)}
-                                            placeholder="e.g. Artificial Intelligence & Data Science"
+                                            placeholder={
+                                                newOptCategory === 'department'
+                                                    ? 'e.g. Tamil'
+                                                    : newOptCategory === 'pg_domain'
+                                                        ? 'e.g. Tamil Literature'
+                                                        : 'e.g. Assistant Professor'
+                                            }
                                             required
-                                        />
-                                    </div>
-                                    <div className="field">
-                                        <label>Option Code / Value (Optional)</label>
-                                        <input
-                                            type="text"
-                                            value={newOptValue}
-                                            onChange={(e) => setNewOptValue(e.target.value)}
-                                            placeholder="e.g. AIDS"
                                         />
                                     </div>
                                     <button type="submit" className="submit-btn" style={{ marginTop: '1rem' }}>

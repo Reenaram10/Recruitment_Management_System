@@ -450,6 +450,8 @@ async function initDatabase() {
                   \`topic\` VARCHAR(255) DEFAULT NULL,
                   \`institution_name\` VARCHAR(255) DEFAULT NULL,
                   \`institution_other\` VARCHAR(255) DEFAULT NULL,
+                  \`university_name\` VARCHAR(255) DEFAULT NULL,
+                  \`university_other\` VARCHAR(255) DEFAULT NULL,
                   \`cert_path\` VARCHAR(255) DEFAULT NULL,
                   \`ug_gate_score\` VARCHAR(50) DEFAULT NULL,
                   \`ug_net_slet_score\` VARCHAR(50) DEFAULT NULL,
@@ -479,12 +481,18 @@ async function initDatabase() {
 
             // Auto-migrate schema: ensure columns exist in base tables
             const alterCols = [
+                "ALTER TABLE tbl_personal_info MODIFY COLUMN txt_Photo_Path LONGBLOB DEFAULT NULL",
+                "ALTER TABLE personal_info MODIFY COLUMN photo_path LONGBLOB DEFAULT NULL",
                 "ALTER TABLE tbl_personal_info ADD COLUMN txt_Ug_Gate_Score VARCHAR(50) DEFAULT NULL",
                 "ALTER TABLE tbl_personal_info ADD COLUMN txt_Ug_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
                 "ALTER TABLE tbl_personal_info ADD COLUMN txt_Pg_Gate_Score VARCHAR(50) DEFAULT NULL",
                 "ALTER TABLE tbl_personal_info ADD COLUMN txt_Pg_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
                 "ALTER TABLE tbl_user_education ADD COLUMN txt_Ug_Gate_Score VARCHAR(50) DEFAULT NULL",
                 "ALTER TABLE tbl_user_education ADD COLUMN txt_Ug_Net_Slet_Score VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE user_education ADD COLUMN university_name VARCHAR(255) DEFAULT NULL",
+                "ALTER TABLE user_education ADD COLUMN university_other VARCHAR(255) DEFAULT NULL",
+                "ALTER TABLE tbl_user_education ADD COLUMN txt_University_Name VARCHAR(255) DEFAULT NULL",
+                "ALTER TABLE tbl_user_education ADD COLUMN txt_University_Other VARCHAR(255) DEFAULT NULL",
                 "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Awards INT DEFAULT 0",
                 "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Funded_Projects INT DEFAULT 0",
                 "ALTER TABLE tbl_user_phd_details ADD COLUMN int_No_Of_Funded_Consultancy INT DEFAULT 0"
@@ -549,6 +557,210 @@ async function initDatabase() {
                 console.log('✅ Added UNIQUE constraint uk_txt_User_Email on tbl_user_phd_details.');
             } catch (e) { /* index may already exist */ }
 
+            // Create Research & Consultancy tables if not existing
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Research_Projects (
+                    int_Project_Id int AUTO_INCREMENT NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    txt_Pi_Name varchar(255) DEFAULT NULL,
+                    txt_Co_Pi_Names varchar(255) DEFAULT NULL,
+                    txt_Students_Involved varchar(10) DEFAULT 'No',
+                    txt_Project_Title varchar(500) NOT NULL,
+                    txt_Industry varchar(255) DEFAULT NULL,
+                    dte_From_Date date DEFAULT NULL,
+                    dte_To_Date date DEFAULT NULL,
+                    txt_Funding_Agency varchar(255) DEFAULT NULL,
+                    txt_Organization_Name varchar(255) DEFAULT NULL,
+                    dec_Amount decimal(12,2) DEFAULT NULL,
+                    int_Year int DEFAULT NULL,
+                    txt_Status varchar(50) DEFAULT NULL,
+                    txt_Proof_Doc_Path varchar(255) DEFAULT NULL,
+                    txt_Yearly_Report_Doc_Path varchar(255) DEFAULT NULL,
+                    dte_Created_Date datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (int_Project_Id),
+                    FOREIGN KEY (txt_User_Email) REFERENCES tbl_Users(txt_User_Email) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Funded_Consultancy (
+                    int_Consultancy_Id int AUTO_INCREMENT NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    txt_Pi_Name varchar(255) DEFAULT NULL,
+                    txt_Co_Pi_Names varchar(255) DEFAULT NULL,
+                    txt_Students_Involved varchar(10) DEFAULT 'No',
+                    txt_Consultancy_Title varchar(500) NOT NULL,
+                    txt_Industry varchar(255) DEFAULT NULL,
+                    dte_From_Date date DEFAULT NULL,
+                    dte_To_Date date DEFAULT NULL,
+                    txt_Client_Org varchar(255) DEFAULT NULL,
+                    txt_Organization_Name varchar(255) DEFAULT NULL,
+                    dec_Amount decimal(12,2) DEFAULT NULL,
+                    int_Year int DEFAULT NULL,
+                    txt_Status varchar(50) DEFAULT NULL,
+                    txt_Proof_Doc_Path varchar(255) DEFAULT NULL,
+                    txt_Yearly_Report_Doc_Path varchar(255) DEFAULT NULL,
+                    dte_Created_Date datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (int_Consultancy_Id),
+                    FOREIGN KEY (txt_User_Email) REFERENCES tbl_Users(txt_User_Email) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            // Normalized Tables for Amount Release Installments
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Project_Releases (
+                    int_Release_Id int AUTO_INCREMENT NOT NULL,
+                    int_Project_Id int NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    dte_Release_Date date DEFAULT NULL,
+                    dec_Amount_Received decimal(12,2) DEFAULT NULL,
+                    txt_Remarks text DEFAULT NULL,
+                    PRIMARY KEY (int_Release_Id),
+                    FOREIGN KEY (int_Project_Id) REFERENCES tbl_User_Research_Projects(int_Project_Id) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Consultancy_Releases (
+                    int_Release_Id int AUTO_INCREMENT NOT NULL,
+                    int_Consultancy_Id int NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    dte_Release_Date date DEFAULT NULL,
+                    dec_Amount_Received decimal(12,2) DEFAULT NULL,
+                    txt_Remarks text DEFAULT NULL,
+                    PRIMARY KEY (int_Release_Id),
+                    FOREIGN KEY (int_Consultancy_Id) REFERENCES tbl_User_Funded_Consultancy(int_Consultancy_Id) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            // Table for Candidate Awards & Honors
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Awards (
+                    int_Award_Id int AUTO_INCREMENT NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    txt_Award_Title varchar(255) NOT NULL,
+                    txt_Awarding_Body varchar(255) DEFAULT NULL,
+                    txt_Category varchar(100) DEFAULT NULL,
+                    int_Year int DEFAULT NULL,
+                    txt_Prize_Amount varchar(100) DEFAULT NULL,
+                    txt_Proof_Doc_Path varchar(255) DEFAULT NULL,
+                    dte_Created_Date datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (int_Award_Id),
+                    FOREIGN KEY (txt_User_Email) REFERENCES tbl_Users(txt_User_Email) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            // Table for Family, References & Other Info
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Other_Details (
+                    int_Other_Id int AUTO_INCREMENT NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    int_No_Of_Awards int DEFAULT 0,
+                    txt_Spouse_Name varchar(255) DEFAULT NULL,
+                    txt_Spouse_Occupation varchar(255) DEFAULT NULL,
+                    txt_Spouse_Org varchar(255) DEFAULT NULL,
+                    int_No_Of_Children int DEFAULT 0,
+                    int_No_Of_Dependents int DEFAULT 0,
+                    txt_Father_Occupation varchar(255) DEFAULT NULL,
+                    txt_Mother_Occupation varchar(255) DEFAULT NULL,
+                    txt_Ref1_Name varchar(255) DEFAULT NULL,
+                    txt_Ref1_Designation varchar(255) DEFAULT NULL,
+                    txt_Ref1_Org varchar(255) DEFAULT NULL,
+                    txt_Ref1_Phone varchar(50) DEFAULT NULL,
+                    txt_Ref1_Email varchar(255) DEFAULT NULL,
+                    txt_Ref1_Relation varchar(100) DEFAULT NULL,
+                    txt_Ref2_Name varchar(255) DEFAULT NULL,
+                    txt_Ref2_Designation varchar(255) DEFAULT NULL,
+                    txt_Ref2_Org varchar(255) DEFAULT NULL,
+                    txt_Ref2_Phone varchar(50) DEFAULT NULL,
+                    txt_Ref2_Email varchar(255) DEFAULT NULL,
+                    txt_Ref2_Relation varchar(100) DEFAULT NULL,
+                    txt_Other_Achievements text DEFAULT NULL,
+                    txt_Special_Remarks text DEFAULT NULL,
+                    dte_Created_Date datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (int_Other_Id),
+                    UNIQUE KEY uk_user_other_email (txt_User_Email(191)),
+                    FOREIGN KEY (txt_User_Email) REFERENCES tbl_Users(txt_User_Email) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            // Table for Candidate Journal Publications (SCI & Scopus)
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS tbl_User_Journal_Publications (
+                    txt_Journal_Id varchar(36) NOT NULL,
+                    txt_User_Email varchar(255) NOT NULL,
+                    txt_Journal_Type enum('SCI','Scopus') NOT NULL DEFAULT 'SCI',
+                    txt_Journal_Name varchar(255) NOT NULL,
+                    txt_Publisher varchar(255) DEFAULT NULL,
+                    txt_Paper_Title varchar(500) NOT NULL,
+                    txt_Vol_No varchar(50) DEFAULT NULL,
+                    txt_Doi varchar(100) DEFAULT NULL,
+                    txt_Publication_Date varchar(20) DEFAULT NULL,
+                    txt_Impact_Factor varchar(50) DEFAULT NULL,
+                    txt_Proof_Doc varchar(500) DEFAULT NULL,
+                    dte_Created_Date datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (txt_Journal_Id),
+                    KEY idx_journal_user_email (txt_User_Email(191)),
+                    FOREIGN KEY (txt_User_Email) REFERENCES tbl_Users(txt_User_Email) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+
+            // Auto-migrations for existing tables
+            const researchCols = [
+                ['txt_Pi_Name', 'varchar(255) DEFAULT NULL'],
+                ['txt_Co_Pi_Names', 'varchar(255) DEFAULT NULL'],
+                ['txt_Students_Involved', "varchar(10) DEFAULT 'No'"],
+                ['txt_Industry', 'varchar(255) DEFAULT NULL'],
+                ['txt_Organization_Name', 'varchar(255) DEFAULT NULL'],
+                ['dte_From_Date', 'date DEFAULT NULL'],
+                ['dte_To_Date', 'date DEFAULT NULL'],
+                ['txt_Proof_Doc_Path', 'varchar(255) DEFAULT NULL'],
+                ['txt_Yearly_Report_Doc_Path', 'varchar(255) DEFAULT NULL']
+            ];
+
+            for (const [colName, colType] of researchCols) {
+                try {
+                    await pool.query(`ALTER TABLE tbl_User_Research_Projects ADD COLUMN ${colName} ${colType};`);
+                } catch (e) { /* Column already exists */ }
+                try {
+                    await pool.query(`ALTER TABLE tbl_User_Funded_Consultancy ADD COLUMN ${colName} ${colType};`);
+                } catch (e) { /* Column already exists */ }
+            }
+
+            // Safely drop txt_Role if exists
+            try { await pool.query('ALTER TABLE tbl_User_Research_Projects DROP COLUMN txt_Role;'); } catch (e) { }
+            try { await pool.query('ALTER TABLE tbl_User_Funded_Consultancy DROP COLUMN txt_Role;'); } catch (e) { }
+
+            // Recreate MySQL views to ensure all new fields are reflected in workbench and queries
+            try {
+                await pool.query(`
+                    CREATE OR REPLACE VIEW user_research_projects AS
+                    SELECT
+                        int_Project_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+                        txt_Students_Involved AS students_involved, txt_Project_Title AS project_title, txt_Industry AS industry,
+                        dte_From_Date AS from_date, dte_To_Date AS to_date, txt_Funding_Agency AS funding_agency,
+                        txt_Organization_Name AS organization_name, dec_Amount AS amount, int_Year AS year,
+                        txt_Status AS status, txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc,
+                        dte_Created_Date AS created_at
+                    FROM tbl_User_Research_Projects;
+                `);
+
+                await pool.query(`
+                    CREATE OR REPLACE VIEW user_funded_consultancy AS
+                    SELECT
+                        int_Consultancy_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+                        txt_Students_Involved AS students_involved, txt_Consultancy_Title AS consultancy_title, txt_Industry AS industry,
+                        dte_From_Date AS from_date, dte_To_Date AS to_date, txt_Client_Org AS client_org,
+                        txt_Organization_Name AS organization_name, dec_Amount AS amount, int_Year AS year,
+                        txt_Status AS status, txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc,
+                        dte_Created_Date AS created_at
+                    FROM tbl_User_Funded_Consultancy;
+                `);
+                console.log('✅ Recreated user_research_projects & user_funded_consultancy views without role column.');
+            } catch (vErr) {
+                console.warn('Warning updating research/consultancy views:', vErr.message);
+            }
+
             // Re-create Views to guarantee view columns match base tables
             try {
                 const viewsSql = `
@@ -578,6 +790,7 @@ async function initDatabase() {
                         int_Year_Of_Passing AS year_of_passing, txt_Medium AS medium, txt_Medium_Other AS medium_other, txt_First_Attempt AS first_attempt,
                         txt_First_Class AS first_class, txt_Degree AS degree, txt_Degree_Other AS degree_other, txt_Specialization AS specialization,
                         txt_Specialization_Other AS specialization_other, txt_Topic AS topic, txt_Institution_Name AS institution_name, txt_Institution_Other AS institution_other,
+                        txt_University_Name AS university_name, txt_University_Other AS university_other,
                         txt_Cert_Path AS cert_path, txt_Ug_Gate_Score AS ug_gate_score, txt_Ug_Net_Slet_Score AS ug_net_slet_score, dte_Created_Date AS created_at
                     FROM tbl_User_Education;
 
@@ -601,6 +814,22 @@ async function initDatabase() {
                         int_Publications_During_Phd AS no_of_publications_during_phd, int_Publications_Post_Phd AS no_of_publications_post_phd, txt_Post_Phd_Experience AS post_phd_experience,
                         int_No_Of_Awards AS no_of_awards, int_No_Of_Funded_Projects AS no_of_funded_projects, int_No_Of_Funded_Consultancy AS no_of_funded_consultancy, dte_Created_Date AS created_at, dte_Updated_Date AS updated_at
                     FROM tbl_User_Phd_Details;
+
+                    CREATE OR REPLACE VIEW user_research_projects AS
+                    SELECT
+                        int_Project_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+                        txt_Project_Title AS project_title, txt_Industry AS industry, dte_From_Date AS from_date, dte_To_Date AS to_date,
+                        txt_Funding_Agency AS funding_agency, txt_Role AS role, dec_Amount AS amount, int_Year AS year, txt_Status AS status,
+                        txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc, dte_Created_Date AS created_at
+                    FROM tbl_User_Research_Projects;
+
+                    CREATE OR REPLACE VIEW user_funded_consultancy AS
+                    SELECT
+                        int_Consultancy_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+                        txt_Consultancy_Title AS consultancy_title, txt_Industry AS industry, dte_From_Date AS from_date, dte_To_Date AS to_date,
+                        txt_Client_Org AS client_org, txt_Role AS role, dec_Amount AS amount, int_Year AS year, txt_Status AS status,
+                        txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc, dte_Created_Date AS created_at
+                    FROM tbl_User_Funded_Consultancy;
                 `;
                 await pool.query(viewsSql);
                 console.log('✅ Views created/updated successfully.');
@@ -620,6 +849,12 @@ async function initDatabase() {
     isDbConnected = false;
 }
 
+let memoryResearchProjects = [];
+let memoryFundedConsultancy = [];
+let memoryAwards = [];
+let memoryOtherDetails = [];
+let memoryJournalPublications = [];
+
 module.exports = {
     getPool: () => pool,
     isDbConnected: () => isDbConnected,
@@ -631,5 +866,11 @@ module.exports = {
     memoryExperience,
     memoryCertifications,
     memoryPhd,
+    memoryResearchProjects,
+    memoryFundedConsultancy,
+    memoryAwards,
+    memoryOtherDetails,
+    memoryJournalPublications,
     memoryInstitutionRankings
 };
+

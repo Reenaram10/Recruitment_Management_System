@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { getPool, isDbConnected, initDatabase, memoryDropdowns, memoryUsers, memoryPersonal, memoryEducation, memoryExperience, memoryCertifications, memoryPhd } = require('./db');
+const { getPool, isDbConnected, initDatabase, memoryDropdowns, memoryUsers, memoryPersonal, memoryEducation, memoryExperience, memoryCertifications, memoryPhd, memoryResearchProjects, memoryFundedConsultancy, memoryAwards, memoryOtherDetails, memoryJournalPublications } = require('./db');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || 8000, 10);
@@ -197,10 +197,7 @@ try {
     if (fs.existsSync(artsCsvPath)) {
         const lines = fs.readFileSync(artsCsvPath, 'utf8').split(/\r?\n/);
         loadedArtsScienceColleges = lines
-            .map(l => {
-                const firstCol = l.split(',')[0];
-                return firstCol ? firstCol.trim() : '';
-            })
+            .map(l => l.trim())
             .filter(l => l && l !== 'College Name');
     }
 } catch (err) {
@@ -297,7 +294,14 @@ app.post('/api/personal', upload.single('photoDoc'), async (req, res) => {
 
         let photo_path = data.photo_path || null;
         if (req.file) {
-            photo_path = '/uploads/' + req.file.filename;
+            try {
+                const fileBuffer = fs.readFileSync(req.file.path);
+                const mimeType = req.file.mimetype || 'image/jpeg';
+                photo_path = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+            } catch (err) {
+                console.warn('Error converting file to BLOB Base64, falling back to path:', err.message);
+                photo_path = '/uploads/' + req.file.filename;
+            }
         }
 
         const sql = `
@@ -309,7 +313,7 @@ app.post('/api/personal', upload.single('photoDoc'), async (req, res) => {
         communication_address, state, district, pincode
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
-        applied_date = VALUES(applied_date), post = VALUES(post), post_other = VALUES(post_other),
+        post = VALUES(post), post_other = VALUES(post_other),
         full_name = VALUES(full_name), dob = VALUES(dob), age = VALUES(age), father_name = VALUES(father_name),
         mother_name = VALUES(mother_name), gender = VALUES(gender), gender_other = VALUES(gender_other),
         blood_group = VALUES(blood_group), blood_group_other = VALUES(blood_group_other),
@@ -326,7 +330,7 @@ app.post('/api/personal', upload.single('photoDoc'), async (req, res) => {
 
         const params = [
             user_email,
-            data.appliedDate || null,
+            null, // applied_date is NULL on personal save; only set during final submit on OtherDetailsTab
             data.post || null,
             data.postOther || null,
             data.fullName || null,
@@ -385,7 +389,7 @@ app.post('/api/personal', upload.single('photoDoc'), async (req, res) => {
         const record = {
             user_email,
             email: data.email || user_email,
-            applied_date: data.appliedDate || null,
+            applied_date: idx !== -1 ? memoryPersonal[idx].applied_date : null, // preserve applied_date; do not overwrite on personal save
             post: data.post || null,
             post_other: data.postOther || null,
             full_name: data.fullName || null,
@@ -487,6 +491,8 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
             const topic = data[prefix + 'Topic'] || null;
             const institution_name = data[prefix + 'Institution'] || null;
             const institution_other = data[prefix + 'InstitutionOther'] || null;
+            const university_name = data[prefix + 'University'] || null;
+            const university_other = data[prefix + 'UniversityOther'] || null;
             const gate_score = data[prefix + 'GateScore'] || null;
             const net_slet_score = data[prefix + 'NetSletScore'] || null;
 
@@ -501,8 +507,8 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
                         INSERT INTO user_education (
                           user_email, qual_type, is_na, percentage, year_of_passing, medium, medium_other,
                           first_attempt, first_class, degree, degree_other, specialization, specialization_other,
-                          topic, institution_name, institution_other, cert_path, ug_gate_score, ug_net_slet_score
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          topic, institution_name, institution_other, university_name, university_other, cert_path, ug_gate_score, ug_net_slet_score
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON DUPLICATE KEY UPDATE
                           is_na = VALUES(is_na), percentage = VALUES(percentage), year_of_passing = VALUES(year_of_passing),
                           medium = VALUES(medium), medium_other = VALUES(medium_other), first_attempt = VALUES(first_attempt),
@@ -510,13 +516,15 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
                           specialization = VALUES(specialization), specialization_other = VALUES(specialization_other),
                           topic = VALUES(topic), institution_name = VALUES(institution_name),
                           institution_other = VALUES(institution_other),
+                          university_name = VALUES(university_name),
+                          university_other = VALUES(university_other),
                           ug_gate_score = VALUES(ug_gate_score), ug_net_slet_score = VALUES(ug_net_slet_score),
                           cert_path = COALESCE(VALUES(cert_path), cert_path);
                     `;
                     await getPool().query(fullSql, [
                         user_email, prefix, is_na, percentage, year_of_passing, medium, medium_other,
                         first_attempt, first_class, degree, degree_other, specialization, specialization_other,
-                        topic, institution_name, institution_other, cert_path, gate_score, net_slet_score
+                        topic, institution_name, institution_other, university_name, university_other, cert_path, gate_score, net_slet_score
                     ]);
                 } catch (dbErr) {
                     console.error(`Education DB save error for ${prefix}:`, dbErr.message);
@@ -542,6 +550,8 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
                     topic,
                     institution_name,
                     institution_other,
+                    university_name,
+                    university_other,
                     cert_path: cert_path || (existingIdx >= 0 ? memoryEducation[existingIdx].cert_path : null),
                     ug_gate_score: gate_score,
                     ug_net_slet_score: net_slet_score
@@ -558,7 +568,7 @@ app.post('/api/education', eduUploadFields, async (req, res) => {
         // Process Ph.D specific detailed attributes if PhD is not NA
         const phdNA = data.phdNA === 'true' || data.phdNA === true;
         if (!phdNA) {
-            const phd_university = data.phdInstitution || data.phdInstitutionOther || null;
+            const phd_university = data.phdUniversity || data.phdUniversityOther || data.phdInstitution || data.phdInstitutionOther || null;
             const phd_title = data.phdTopic || null;
             const phd_guide_name = data.phdGuideName || null;
             const phd_guide_college = data.phdGuideCollege || null;
@@ -740,6 +750,464 @@ app.post('/api/certifications', upload.any(), async (req, res) => {
 });
 
 /* ===========================================================
+   6b. TAB: RESEARCH & CONSULTANCY ENDPOINT
+=========================================================== */
+/* ===========================================================
+   6b. TAB: RESEARCH & CONSULTANCY ENDPOINT & FILE UPLOAD
+=========================================================== */
+app.post('/api/upload-research-doc', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+        const fileUrl = '/uploads/' + req.file.filename;
+        return res.json({ success: true, url: fileUrl, filename: req.file.originalname });
+    } catch (err) {
+        console.error('Research file upload error:', err);
+        res.status(500).json({ success: false, message: 'File upload failed.' });
+    }
+});
+
+app.post('/api/research-consultancy', async (req, res) => {
+    try {
+        const { user_email, projects, consultancy } = req.body;
+
+        if (!user_email) {
+            return res.status(400).json({ success: false, message: 'User email is required.' });
+        }
+
+        const projectList = Array.isArray(projects) ? projects : [];
+        const consultancyList = Array.isArray(consultancy) ? consultancy : [];
+
+        const safeDate = (val) => {
+            if (!val) return null;
+            const s = String(val).trim();
+            if (!s || s === 'null' || s === 'undefined' || s === 'NaN') return null;
+            if (s.includes('T')) return s.split('T')[0];
+            return s;
+        };
+
+        const safeInt = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const n = parseInt(val, 10);
+            return isNaN(n) ? null : n;
+        };
+
+        const safeFloat = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const n = parseFloat(val);
+            return isNaN(n) ? null : n;
+        };
+
+        if (isDbConnected() && getPool()) {
+            const pool = getPool();
+            // Delete existing releases and records for this user
+            await pool.query('DELETE FROM tbl_User_Project_Releases WHERE txt_User_Email = ?', [user_email]);
+            await pool.query('DELETE FROM tbl_User_Consultancy_Releases WHERE txt_User_Email = ?', [user_email]);
+            await pool.query('DELETE FROM tbl_User_Research_Projects WHERE txt_User_Email = ?', [user_email]);
+            await pool.query('DELETE FROM tbl_User_Funded_Consultancy WHERE txt_User_Email = ?', [user_email]);
+
+            for (const p of projectList) {
+                const title = p.project_title || p.consultancy_title || '';
+                if (title.trim()) {
+                    const [pRes] = await pool.query(
+                        `INSERT INTO tbl_User_Research_Projects (
+                            txt_User_Email, txt_Pi_Name, txt_Co_Pi_Names, txt_Students_Involved,
+                            txt_Project_Title, txt_Industry, dte_From_Date, dte_To_Date,
+                            txt_Funding_Agency, txt_Organization_Name, dec_Amount,
+                            int_Year, txt_Status, txt_Proof_Doc_Path, txt_Yearly_Report_Doc_Path
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            user_email,
+                            p.pi_name || null,
+                            p.co_pi_names || null,
+                            p.students_involved || 'No',
+                            title.trim(),
+                            p.industry || null,
+                            safeDate(p.from_date),
+                            safeDate(p.to_date),
+                            p.funding_agency || p.organization_name || null,
+                            p.organization_name || p.funding_agency || null,
+                            safeFloat(p.amount),
+                            safeInt(p.year) || new Date().getFullYear(),
+                            p.status || 'Ongoing',
+                            p.proof_doc || null,
+                            p.yearly_report_doc || null
+                        ]
+                    );
+
+                    const projectId = pRes.insertId;
+                    if (projectId && Array.isArray(p.releases)) {
+                        for (const rel of p.releases) {
+                            if (rel.release_date || rel.amount_received) {
+                                await pool.query(
+                                    `INSERT INTO tbl_User_Project_Releases (
+                                        int_Project_Id, txt_User_Email, dte_Release_Date, dec_Amount_Received, txt_Remarks
+                                    ) VALUES (?, ?, ?, ?, ?)`,
+                                    [
+                                        projectId,
+                                        user_email,
+                                        safeDate(rel.release_date),
+                                        safeFloat(rel.amount_received),
+                                        rel.remarks || null
+                                    ]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const c of consultancyList) {
+                const title = c.consultancy_title || c.project_title || '';
+                if (title.trim()) {
+                    const [cRes] = await pool.query(
+                        `INSERT INTO tbl_User_Funded_Consultancy (
+                            txt_User_Email, txt_Pi_Name, txt_Co_Pi_Names, txt_Students_Involved,
+                            txt_Consultancy_Title, txt_Industry, dte_From_Date, dte_To_Date,
+                            txt_Client_Org, txt_Organization_Name, dec_Amount,
+                            int_Year, txt_Status, txt_Proof_Doc_Path, txt_Yearly_Report_Doc_Path
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            user_email,
+                            c.pi_name || null,
+                            c.co_pi_names || null,
+                            c.students_involved || 'No',
+                            title.trim(),
+                            c.industry || null,
+                            safeDate(c.from_date),
+                            safeDate(c.to_date),
+                            c.client_org || c.organization_name || null,
+                            c.organization_name || c.client_org || null,
+                            safeFloat(c.amount),
+                            safeInt(c.year) || new Date().getFullYear(),
+                            c.status || 'Ongoing',
+                            c.proof_doc || null,
+                            c.yearly_report_doc || null
+                        ]
+                    );
+
+                    const consultancyId = cRes.insertId;
+                    if (consultancyId && Array.isArray(c.releases)) {
+                        for (const rel of c.releases) {
+                            if (rel.release_date || rel.amount_received) {
+                                await pool.query(
+                                    `INSERT INTO tbl_User_Consultancy_Releases (
+                                        int_Consultancy_Id, txt_User_Email, dte_Release_Date, dec_Amount_Received, txt_Remarks
+                                    ) VALUES (?, ?, ?, ?, ?)`,
+                                    [
+                                        consultancyId,
+                                        user_email,
+                                        safeDate(rel.release_date),
+                                        safeFloat(rel.amount_received),
+                                        rel.remarks || null
+                                    ]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Memory Fallback
+            memoryResearchProjects = memoryResearchProjects.filter(p => p.user_email !== user_email);
+            memoryFundedConsultancy = memoryFundedConsultancy.filter(c => c.user_email !== user_email);
+
+            projectList.forEach(p => {
+                if ((p.project_title || p.consultancy_title || '').trim()) {
+                    memoryResearchProjects.push({ ...p, user_email });
+                }
+            });
+
+            consultancyList.forEach(c => {
+                if ((c.consultancy_title || c.project_title || '').trim()) {
+                    memoryFundedConsultancy.push({ ...c, user_email });
+                }
+            });
+        }
+
+        res.json({ success: true, message: 'Research & Consultancy details saved successfully.' });
+    } catch (err) {
+        console.error('Research & Consultancy save error:', err);
+        res.status(500).json({ success: false, message: 'Failed to save Research & Consultancy details.' });
+    }
+});
+
+/* ===========================================================
+   6c. TAB 6: OTHER DETAILS (AWARDS, FAMILY, REFERENCES & OTHER INFO)
+=========================================================== */
+app.post('/api/upload-award-doc', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+        const fileUrl = '/uploads/' + req.file.filename;
+        return res.json({ success: true, url: fileUrl, filename: req.file.originalname });
+    } catch (err) {
+        console.error('Award file upload error:', err);
+        res.status(500).json({ success: false, message: 'File upload failed.' });
+    }
+});
+
+app.post('/api/other-details', async (req, res) => {
+    try {
+        const {
+            user_email,
+            no_of_awards,
+            awards,
+            spouse_name,
+            spouse_occupation,
+            spouse_org,
+            no_of_children,
+            no_of_dependents,
+            father_occupation,
+            mother_occupation,
+            ref1_name,
+            ref1_designation,
+            ref1_org,
+            ref1_phone,
+            ref1_email,
+            ref1_relation,
+            ref2_name,
+            ref2_designation,
+            ref2_org,
+            ref2_phone,
+            ref2_email,
+            ref2_relation,
+            other_achievements,
+            special_remarks
+        } = req.body;
+
+        if (!user_email) {
+            return res.status(400).json({ success: false, message: 'User email is required.' });
+        }
+
+        const awardList = Array.isArray(awards) ? awards : [];
+        const numAwards = no_of_awards !== undefined && no_of_awards !== null ? parseInt(no_of_awards, 10) : awardList.length;
+
+        if (isDbConnected() && getPool()) {
+            const pool = getPool();
+
+            // 1. Delete and re-insert awards
+            await pool.query('DELETE FROM tbl_User_Awards WHERE txt_User_Email = ?', [user_email]);
+
+            for (const a of awardList) {
+                if ((a.title || '').trim()) {
+                    await pool.query(
+                        `INSERT INTO tbl_User_Awards (
+                            txt_User_Email, txt_Award_Title, txt_Awarding_Body, txt_Category, int_Year, txt_Prize_Amount, txt_Proof_Doc_Path
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            user_email,
+                            (a.title || '').trim(),
+                            a.organization || a.awarding_body || null,
+                            a.category || 'National',
+                            a.year ? parseInt(a.year, 10) : new Date().getFullYear(),
+                            a.prize || null,
+                            a.proof_doc || null
+                        ]
+                    );
+                }
+            }
+
+            // 2. UPSERT tbl_User_Other_Details
+            const upsertSql = `
+                INSERT INTO tbl_User_Other_Details (
+                    txt_User_Email, int_No_Of_Awards, txt_Spouse_Name, txt_Spouse_Occupation, txt_Spouse_Org,
+                    int_No_Of_Children, int_No_Of_Dependents, txt_Father_Occupation, txt_Mother_Occupation,
+                    txt_Ref1_Name, txt_Ref1_Designation, txt_Ref1_Org, txt_Ref1_Phone, txt_Ref1_Email, txt_Ref1_Relation,
+                    txt_Ref2_Name, txt_Ref2_Designation, txt_Ref2_Org, txt_Ref2_Phone, txt_Ref2_Email, txt_Ref2_Relation,
+                    txt_Other_Achievements, txt_Special_Remarks
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    int_No_Of_Awards = VALUES(int_No_Of_Awards),
+                    txt_Spouse_Name = VALUES(txt_Spouse_Name),
+                    txt_Spouse_Occupation = VALUES(txt_Spouse_Occupation),
+                    txt_Spouse_Org = VALUES(txt_Spouse_Org),
+                    int_No_Of_Children = VALUES(int_No_Of_Children),
+                    int_No_Of_Dependents = VALUES(int_No_Of_Dependents),
+                    txt_Father_Occupation = VALUES(txt_Father_Occupation),
+                    txt_Mother_Occupation = VALUES(txt_Mother_Occupation),
+                    txt_Ref1_Name = VALUES(txt_Ref1_Name),
+                    txt_Ref1_Designation = VALUES(txt_Ref1_Designation),
+                    txt_Ref1_Org = VALUES(txt_Ref1_Org),
+                    txt_Ref1_Phone = VALUES(txt_Ref1_Phone),
+                    txt_Ref1_Email = VALUES(txt_Ref1_Email),
+                    txt_Ref1_Relation = VALUES(txt_Ref1_Relation),
+                    txt_Ref2_Name = VALUES(txt_Ref2_Name),
+                    txt_Ref2_Designation = VALUES(txt_Ref2_Designation),
+                    txt_Ref2_Org = VALUES(txt_Ref2_Org),
+                    txt_Ref2_Phone = VALUES(txt_Ref2_Phone),
+                    txt_Ref2_Email = VALUES(txt_Ref2_Email),
+                    txt_Ref2_Relation = VALUES(txt_Ref2_Relation),
+                    txt_Other_Achievements = VALUES(txt_Other_Achievements),
+                    txt_Special_Remarks = VALUES(txt_Special_Remarks);
+            `;
+
+            await pool.query(upsertSql, [
+                user_email,
+                numAwards,
+                spouse_name || null,
+                spouse_occupation || null,
+                spouse_org || null,
+                no_of_children ? parseInt(no_of_children, 10) : 0,
+                no_of_dependents ? parseInt(no_of_dependents, 10) : 0,
+                father_occupation || null,
+                mother_occupation || null,
+                ref1_name || null,
+                ref1_designation || null,
+                ref1_org || null,
+                ref1_phone || null,
+                ref1_email || null,
+                ref1_relation || null,
+                ref2_name || null,
+                ref2_designation || null,
+                ref2_org || null,
+                ref2_phone || null,
+                ref2_email || null,
+                ref2_relation || null,
+                other_achievements || null,
+                special_remarks || null
+            ]);
+
+            if (req.body.is_final_submit) {
+                await pool.query('UPDATE tbl_personal_info SET dte_Applied_Date = NOW() WHERE txt_User_Email = ? OR txt_Contact_Email = ?', [user_email, user_email]);
+                try {
+                    await pool.query('UPDATE personal_info SET applied_date = NOW() WHERE user_email = ? OR email = ?', [user_email, user_email]);
+                } catch (e) { /* ignore view update fallback */ }
+            }
+        } else {
+            // Memory fallback
+            const existingOtherIdx = memoryOtherDetails.findIndex(o => o.user_email === user_email);
+            const otherRecord = {
+                user_email,
+                no_of_awards: numAwards,
+                spouse_name,
+                spouse_occupation,
+                spouse_org,
+                no_of_children: no_of_children ? parseInt(no_of_children, 10) : 0,
+                no_of_dependents: no_of_dependents ? parseInt(no_of_dependents, 10) : 0,
+                father_occupation,
+                mother_occupation,
+                ref1_name,
+                ref1_designation,
+                ref1_org,
+                ref1_phone,
+                ref1_email,
+                ref1_relation,
+                ref2_name,
+                ref2_designation,
+                ref2_org,
+                ref2_phone,
+                ref2_email,
+                ref2_relation,
+                other_achievements,
+                special_remarks
+            };
+
+            if (existingOtherIdx >= 0) {
+                memoryOtherDetails[existingOtherIdx] = otherRecord;
+            } else {
+                memoryOtherDetails.push(otherRecord);
+            }
+
+            // Memory awards
+            const filteredAwards = memoryAwards.filter(a => a.user_email !== user_email);
+            awardList.forEach(a => {
+                if ((a.title || '').trim()) {
+                    filteredAwards.push({ ...a, user_email });
+                }
+            });
+            // Update memoryAwards array in place
+            memoryAwards.length = 0;
+            memoryAwards.push(...filteredAwards);
+
+            if (req.body.is_final_submit) {
+                const memP = memoryPersonal.find(p => p.user_email === user_email);
+                if (memP) {
+                    memP.applied_date = new Date().toISOString();
+                }
+            }
+        }
+
+        res.json({ success: true, message: 'Other details saved successfully.' });
+    } catch (err) {
+        console.error('Other details save error:', err);
+        res.status(500).json({ success: false, message: 'Failed to save other details.' });
+    }
+});
+
+// Endpoint for candidate journal publications (SCI & Scopus)
+app.post('/api/journal-publications', async (req, res) => {
+    try {
+        const { user_email, journal_publications } = req.body;
+        if (!user_email) {
+            return res.status(400).json({ success: false, message: 'User email is required.' });
+        }
+
+        const pubList = Array.isArray(journal_publications) ? journal_publications : [];
+
+        if (isDbConnected() && getPool()) {
+            const pool = getPool();
+            await pool.query('DELETE FROM tbl_User_Journal_Publications WHERE txt_User_Email = ?', [user_email]);
+
+            for (const [idx, pub] of pubList.entries()) {
+                if ((pub.paper_title || pub.journal_name || '').trim()) {
+                    const pubId = pub.id || `jp_${Date.now()}_${idx}`;
+                    await pool.query(
+                        `INSERT INTO tbl_User_Journal_Publications (
+                            txt_Journal_Id, txt_User_Email, txt_Journal_Type, txt_Journal_Name,
+                            txt_Publisher, txt_Paper_Title, txt_Vol_No, txt_Doi,
+                            txt_Publication_Date, txt_Impact_Factor, txt_Proof_Doc
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            pubId,
+                            user_email,
+                            pub.journal_type === 'Scopus' ? 'Scopus' : 'SCI',
+                            (pub.journal_name || '').trim(),
+                            pub.publisher || null,
+                            (pub.paper_title || '').trim(),
+                            pub.vol_no || null,
+                            pub.doi || null,
+                            pub.publication_date || null,
+                            pub.impact_factor || null,
+                            pub.proof_doc || null
+                        ]
+                    );
+                }
+            }
+        } else {
+            // Memory fallback
+            const filtered = memoryJournalPublications.filter(j => j.user_email !== user_email);
+            pubList.forEach((pub, idx) => {
+                if ((pub.paper_title || pub.journal_name || '').trim()) {
+                    filtered.push({
+                        id: pub.id || `jp_${Date.now()}_${idx}`,
+                        user_email,
+                        journal_type: pub.journal_type === 'Scopus' ? 'Scopus' : 'SCI',
+                        journal_name: pub.journal_name || '',
+                        publisher: pub.publisher || '',
+                        paper_title: pub.paper_title || '',
+                        vol_no: pub.vol_no || '',
+                        doi: pub.doi || '',
+                        publication_date: pub.publication_date || '',
+                        impact_factor: pub.impact_factor || '',
+                        proof_doc: pub.proof_doc || ''
+                    });
+                }
+            });
+            memoryJournalPublications.length = 0;
+            memoryJournalPublications.push(...filtered);
+        }
+
+        res.json({ success: true, message: 'Journal publications saved successfully.' });
+    } catch (err) {
+        console.error('Journal publications save error:', err);
+        res.status(500).json({ success: false, message: 'Failed to save journal publications.' });
+    }
+});
+
+/* ===========================================================
    7. FETCH PROFILE DETAILS API
 =========================================================== */
 
@@ -758,14 +1226,153 @@ app.get('/api/profile', async (req, res) => {
             });
         };
 
+        const formatDateStr = (val) => {
+            if (!val) return '';
+            if (val instanceof Date) {
+                return val.toISOString().split('T')[0];
+            }
+            const s = String(val).trim();
+            if (!s || s === 'null' || s === 'undefined') return '';
+            if (s.includes('T')) return s.split('T')[0];
+            return s;
+        };
+
         if (isDbConnected() && getPool()) {
-            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ? OR email = ? ORDER BY id DESC LIMIT 1', [email, email]);
-            const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ? ORDER BY id DESC', [email]);
-            const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ? ORDER BY id DESC', [email]);
-            const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ? ORDER BY id DESC', [email]);
-            const [phdDetails] = await getPool().query('SELECT * FROM user_phd_details WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
+            const pool = getPool();
+            const [personal] = await pool.query('SELECT * FROM personal_info WHERE user_email = ? OR email = ? ORDER BY id DESC LIMIT 1', [email, email]);
+            const [education] = await pool.query('SELECT * FROM user_education WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [experience] = await pool.query('SELECT * FROM user_experience WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [certifications] = await pool.query('SELECT * FROM user_certifications WHERE user_email = ? ORDER BY id DESC', [email]);
+            const [phdDetails] = await pool.query('SELECT * FROM user_phd_details WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
+
+            // Query base tables for projects, consultancy, and journal publications
+            const [rawProjects] = await pool.query('SELECT * FROM tbl_User_Research_Projects WHERE txt_User_Email = ? ORDER BY int_Project_Id DESC', [email]);
+            const [rawConsultancies] = await pool.query('SELECT * FROM tbl_User_Funded_Consultancy WHERE txt_User_Email = ? ORDER BY int_Consultancy_Id DESC', [email]);
+            const [rawJournals] = await pool.query('SELECT * FROM tbl_User_Journal_Publications WHERE txt_User_Email = ? ORDER BY dte_Created_Date DESC', [email]);
+
+            const journal_publications = rawJournals.map(j => ({
+                id: j.txt_Journal_Id,
+                journal_type: j.txt_Journal_Type || 'SCI',
+                journal_name: j.txt_Journal_Name || '',
+                publisher: j.txt_Publisher || '',
+                paper_title: j.txt_Paper_Title || '',
+                vol_no: j.txt_Vol_No || '',
+                doi: j.txt_Doi || '',
+                publication_date: j.txt_Publication_Date || '',
+                impact_factor: j.txt_Impact_Factor || '',
+                proof_doc: j.txt_Proof_Doc || ''
+            }));
+
+            const researchProjects = [];
+            for (const p of rawProjects) {
+                const [releases] = await pool.query('SELECT dte_Release_Date as release_date, dec_Amount_Received as amount_received, txt_Remarks as remarks FROM tbl_User_Project_Releases WHERE int_Project_Id = ?', [p.int_Project_Id]);
+                researchProjects.push({
+                    pi_name: p.txt_Pi_Name || '',
+                    co_pi_names: p.txt_Co_Pi_Names || '',
+                    students_involved: p.txt_Students_Involved || 'No',
+                    project_title: p.txt_Project_Title || '',
+                    industry: p.txt_Industry || '',
+                    from_date: formatDateStr(p.dte_From_Date),
+                    to_date: formatDateStr(p.dte_To_Date),
+                    funding_agency: p.txt_Funding_Agency || p.txt_Organization_Name || '',
+                    organization_name: p.txt_Organization_Name || p.txt_Funding_Agency || '',
+                    amount: p.dec_Amount !== null && p.dec_Amount !== undefined ? p.dec_Amount : '',
+                    year: p.int_Year || '',
+                    status: p.txt_Status || 'Ongoing',
+                    proof_doc: p.txt_Proof_Doc_Path || '',
+                    yearly_report_doc: p.txt_Yearly_Report_Doc_Path || '',
+                    releases: (releases || []).map(r => ({
+                        release_date: formatDateStr(r.release_date),
+                        amount_received: r.amount_received !== null && r.amount_received !== undefined ? r.amount_received : '',
+                        remarks: r.remarks || ''
+                    }))
+                });
+            }
+
+            const fundedConsultancy = [];
+            for (const c of rawConsultancies) {
+                const [releases] = await pool.query('SELECT dte_Release_Date as release_date, dec_Amount_Received as amount_received, txt_Remarks as remarks FROM tbl_User_Consultancy_Releases WHERE int_Consultancy_Id = ?', [c.int_Consultancy_Id]);
+                fundedConsultancy.push({
+                    pi_name: c.txt_Pi_Name || '',
+                    co_pi_names: c.txt_Co_Pi_Names || '',
+                    students_involved: c.txt_Students_Involved || 'No',
+                    consultancy_title: c.txt_Consultancy_Title || '',
+                    industry: c.txt_Industry || '',
+                    from_date: formatDateStr(c.dte_From_Date),
+                    to_date: formatDateStr(c.dte_To_Date),
+                    client_org: c.txt_Client_Org || c.txt_Organization_Name || '',
+                    organization_name: c.txt_Organization_Name || c.txt_Client_Org || '',
+                    amount: c.dec_Amount !== null && c.dec_Amount !== undefined ? c.dec_Amount : '',
+                    year: c.int_Year || '',
+                    status: c.txt_Status || 'Ongoing',
+                    proof_doc: c.txt_Proof_Doc_Path || '',
+                    yearly_report_doc: c.txt_Yearly_Report_Doc_Path || '',
+                    releases: (releases || []).map(r => ({
+                        release_date: formatDateStr(r.release_date),
+                        amount_received: r.amount_received !== null && r.amount_received !== undefined ? r.amount_received : '',
+                        remarks: r.remarks || ''
+                    }))
+                });
+            }
+
+            // Query awards and other details
+            const [rawAwards] = await pool.query('SELECT * FROM tbl_User_Awards WHERE txt_User_Email = ? ORDER BY int_Award_Id DESC', [email]);
+            const [rawOtherDetails] = await pool.query('SELECT * FROM tbl_User_Other_Details WHERE txt_User_Email = ? LIMIT 1', [email]);
+
+            const awards = rawAwards.map(a => ({
+                id: a.int_Award_Id,
+                title: a.txt_Award_Title || '',
+                organization: a.txt_Awarding_Body || '',
+                category: a.txt_Category || 'National',
+                year: a.int_Year || '',
+                prize: a.txt_Prize_Amount || '',
+                proof_doc: a.txt_Proof_Doc_Path || ''
+            }));
+
+            const otherRecord = rawOtherDetails[0] || null;
+            const other_details = otherRecord ? {
+                no_of_awards: otherRecord.int_No_Of_Awards || awards.length,
+                spouse_name: otherRecord.txt_Spouse_Name || '',
+                spouse_occupation: otherRecord.txt_Spouse_Occupation || '',
+                spouse_org: otherRecord.txt_Spouse_Org || '',
+                no_of_children: otherRecord.int_No_Of_Children || 0,
+                no_of_dependents: otherRecord.int_No_Of_Dependents || 0,
+                father_occupation: otherRecord.txt_Father_Occupation || '',
+                mother_occupation: otherRecord.txt_Mother_Occupation || '',
+                ref1_name: otherRecord.txt_Ref1_Name || '',
+                ref1_designation: otherRecord.txt_Ref1_Designation || '',
+                ref1_org: otherRecord.txt_Ref1_Org || '',
+                ref1_phone: otherRecord.txt_Ref1_Phone || '',
+                ref1_email: otherRecord.txt_Ref1_Email || '',
+                ref1_relation: otherRecord.txt_Ref1_Relation || '',
+                ref2_name: otherRecord.txt_Ref2_Name || '',
+                ref2_designation: otherRecord.txt_Ref2_Designation || '',
+                ref2_org: otherRecord.txt_Ref2_Org || '',
+                ref2_phone: otherRecord.txt_Ref2_Phone || '',
+                ref2_email: otherRecord.txt_Ref2_Email || '',
+                ref2_relation: otherRecord.txt_Ref2_Relation || '',
+                other_achievements: otherRecord.txt_Other_Achievements || '',
+                special_remarks: otherRecord.txt_Special_Remarks || ''
+            } : {
+                no_of_awards: awards.length,
+                spouse_name: '', spouse_occupation: '', spouse_org: '',
+                no_of_children: 0, no_of_dependents: 0, father_occupation: '', mother_occupation: '',
+                ref1_name: '', ref1_designation: '', ref1_org: '', ref1_phone: '', ref1_email: '', ref1_relation: '',
+                ref2_name: '', ref2_designation: '', ref2_org: '', ref2_phone: '', ref2_email: '', ref2_relation: '',
+                other_achievements: '', special_remarks: ''
+            };
 
             const personalRecord = personal[0] || null;
+            if (personalRecord && personalRecord.photo_path) {
+                if (Buffer.isBuffer(personalRecord.photo_path)) {
+                    const str = personalRecord.photo_path.toString('utf8');
+                    if (str.startsWith('data:image/') || str.startsWith('/uploads/')) {
+                        personalRecord.photo_path = str;
+                    } else {
+                        personalRecord.photo_path = `data:image/jpeg;base64,${personalRecord.photo_path.toString('base64')}`;
+                    }
+                }
+            }
 
             return res.json({
                 success: true,
@@ -773,7 +1380,12 @@ app.get('/api/profile', async (req, res) => {
                 education: dedupe(education, e => e.qual_type),
                 experience: dedupe(experience, e => e.id || `${e.designation}_${e.org_name}_${e.from_date}`),
                 certifications: dedupe(certifications, c => c.id || `${c.title}_${c.organization}_${c.year}`),
-                phd_details: phdDetails[0] || null
+                phd_details: phdDetails[0] || null,
+                research_projects: researchProjects,
+                funded_consultancy: fundedConsultancy,
+                journal_publications,
+                awards,
+                other_details
             });
         } else {
             const personal = memoryPersonal.find(p => p.user_email === email) || null;
@@ -781,6 +1393,11 @@ app.get('/api/profile', async (req, res) => {
             const experience = memoryExperience.filter(e => e.user_email === email);
             const certifications = memoryCertifications.filter(c => c.user_email === email);
             const phdDetails = memoryPhd.find(p => p.user_email === email) || null;
+            const researchProjects = memoryResearchProjects.filter(p => p.user_email === email);
+            const fundedConsultancy = memoryFundedConsultancy.filter(c => c.user_email === email);
+            const journal_publications = memoryJournalPublications.filter(j => j.user_email === email);
+            const awards = memoryAwards.filter(a => a.user_email === email);
+            const memoryOther = memoryOtherDetails.find(o => o.user_email === email) || null;
 
             return res.json({
                 success: true,
@@ -788,7 +1405,19 @@ app.get('/api/profile', async (req, res) => {
                 education: dedupe(education, e => e.qual_type),
                 experience: dedupe(experience, e => `${e.designation}_${e.org_name}_${e.from_date}`),
                 certifications: dedupe(certifications, c => `${c.title}_${c.organization}_${c.year}`),
-                phd_details: phdDetails
+                phd_details: phdDetails,
+                research_projects: researchProjects,
+                funded_consultancy: fundedConsultancy,
+                journal_publications,
+                awards,
+                other_details: memoryOther || {
+                    no_of_awards: awards.length,
+                    spouse_name: '', spouse_occupation: '', spouse_org: '',
+                    no_of_children: 0, no_of_dependents: 0, father_occupation: '', mother_occupation: '',
+                    ref1_name: '', ref1_designation: '', ref1_org: '', ref1_phone: '', ref1_email: '', ref1_relation: '',
+                    ref2_name: '', ref2_designation: '', ref2_org: '', ref2_phone: '', ref2_email: '', ref2_relation: '',
+                    other_achievements: '', special_remarks: ''
+                }
             });
         }
     } catch (err) {
@@ -801,18 +1430,6 @@ app.get('/api/profile', async (req, res) => {
    8. DYNAMIC DROPDOWN OPTIONS ENDPOINTS (PUBLIC & ADMIN)
 =========================================================== */
 
-// Dynamic scoring: the database defines the parameter, source field and rules.
-async function candidateScoringValues(email) {
-    const pool = getPool();
-    const [education] = await pool.query('SELECT * FROM user_education WHERE user_email = ?', [email]);
-    const [experience] = await pool.query('SELECT * FROM user_experience WHERE user_email = ?', [email]);
-    const [certifications] = await pool.query('SELECT * FROM user_certifications WHERE user_email = ?', [email]);
-    const [phdRows] = await pool.query('SELECT * FROM user_phd_details WHERE user_email = ?', [email]);
-    const byType = Object.fromEntries(education.map(e => [e.qual_type, e])); const field = (type, key) => byType[type]?.[key] ?? null;
-    const months = experience.reduce((sum, e) => { const m = String(e.total_duration || '').match(/(\d+)\s*(?:yr|yrs|year|years)/i); const n = String(e.total_duration || '').match(/(\d+)\s*month/i); return sum + (m ? +m[1] * 12 : 0) + (n ? +n[1] : 0); }, 0);
-    const phd = phdRows[0] || {};
-    return { 'tenth.score': field('tenth', 'percentage'), 'tenth.medium': field('tenth', 'medium'), 'twelfth.score': field('twelfth', 'percentage'), 'twelfth.medium': field('twelfth', 'medium'), ...Object.fromEntries(['ug', 'pg', 'mphil'].flatMap(t => [[`${t}.score`, field(t, 'percentage')], [`${t}.institute`, field(t, 'institution_name')], [`${t}.first_attempt`, field(t, 'first_attempt')], [`${t}.first_class`, field(t, 'first_class')]])), 'ug.gate_score': field('ug', 'ug_gate_score'), 'ug.net_slet_score': field('ug', 'ug_net_slet_score'), 'phd.status': phd.status, 'phd.completed': phd.status === 'Completed' ? 'Yes' : 'No', 'phd.publications_during': phd.no_of_publications_during_phd, 'phd.awards': phd.no_of_awards, 'phd.funded_projects': phd.no_of_funded_projects, 'phd.funded_consultancy': phd.no_of_funded_consultancy, 'experience.years': months / 12, 'certifications.nptel_count': certifications.filter(c => /nptel/i.test(c.category || '')).length };
-}
 let memoryScoringParameters = [
     { id: 1, parameter_key: 'tenth_score', parameter_name: '10th Score (%)', candidate_field: 'tenth.score', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 101, range_type: 'number', min_value: 80, max_value: 100, assigned_score: 5 }, { id: 102, range_type: 'number', min_value: 60, max_value: 79, assigned_score: 3 }] },
     { id: 2, parameter_key: 'tenth_medium', parameter_name: '10th Medium', candidate_field: 'tenth.medium', value_type: 'category', max_weightage: 2, is_active: 1, ranges: [{ id: 103, range_type: 'category', category_value: 'English', assigned_score: 2 }, { id: 104, range_type: 'category', category_value: 'Tamil', assigned_score: 1 }] },
@@ -837,7 +1454,7 @@ let memoryScoringParameters = [
     { id: 21, parameter_key: 'experience', parameter_name: 'Teaching Experience (Years)', candidate_field: 'experience.years', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 118, range_type: 'number', min_value: 5, max_value: 50, assigned_score: 5 }, { id: 119, range_type: 'number', min_value: 1, max_value: 4, assigned_score: 3 }] },
     { id: 22, parameter_key: 'publications_during_phd', parameter_name: 'Publications During Ph.D.', candidate_field: 'phd.publications_during', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
     { id: 23, parameter_key: 'awards', parameter_name: 'Awards & Honors', candidate_field: 'phd.awards', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
-    { id: 24, parameter_key: 'nptel_course', parameter_name: 'NPTEL Certifications Count', candidate_field: 'certifications.nptel_count', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
+    { id: 24, parameter_key: 'nptel_course', parameter_name: 'NPTEL / SWAYAM Certifications Count', candidate_field: 'certifications.nptel_count', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
     { id: 25, parameter_key: 'funded_projects', parameter_name: 'Funded Projects', candidate_field: 'phd.funded_projects', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] },
     { id: 26, parameter_key: 'funded_consultancy', parameter_name: 'Funded Consultancy', candidate_field: 'phd.funded_consultancy', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] }
 ];
@@ -905,6 +1522,8 @@ async function candidateScoringValues(email) {
     const pgRank = await resolveInstituteRankNumber(field('pg', 'institution_name') || field('pg', 'institution_other'));
     const mphilRank = await resolveInstituteRankNumber(field('mphil', 'institution_name') || field('mphil', 'institution_other'));
 
+    const isSwayamOrNptel = (c) => /(swayam|nptel)/i.test(c.category || '') || /(swayam|nptel)/i.test(c.organization || '') || /(swayam|nptel)/i.test(c.title || '');
+
     return {
         'tenth.score': field('tenth', 'percentage'),
         'tenth.medium': field('tenth', 'medium'),
@@ -931,7 +1550,7 @@ async function candidateScoringValues(email) {
         'phd.funded_projects': (phd.no_of_funded_projects && Number(phd.no_of_funded_projects) > 0) ? 'Yes' : 'No',
         'phd.funded_consultancy': (phd.no_of_funded_consultancy && Number(phd.no_of_funded_consultancy) > 0) ? 'Yes' : 'No',
         'experience.years': months / 12,
-        'certifications.nptel_count': certifications.filter(c => /nptel/i.test(c.category || '')).length
+        'certifications.nptel_count': certifications.filter(isSwayamOrNptel).length
     };
 }
 
@@ -970,6 +1589,78 @@ async function computeCandidateTotalScore(email) {
     } catch (e) {
         return 0;
     }
+}
+
+async function computeCandidateDetailedWeights(email) {
+    const weights = {
+        medium_weight: 0,
+        hsc_weight: 0,
+        ug_degree_weight: 0,
+        pg_degree_weight: 0,
+        mphil_weight: 0,
+        ug_first_attempt_weight: 0,
+        pg_first_attempt_weight: 0,
+        certification_weight: 0,
+        total_weight: 0
+    };
+
+    try {
+        let activeParams = [];
+        if (isDbConnected() && getPool()) {
+            const [params] = await getPool().query('SELECT * FROM scoring_parameters WHERE is_active=1 ORDER BY display_order,id');
+            for (const p of params) {
+                const [ranges] = await getPool().query('SELECT * FROM scoring_ranges WHERE parameter_id=? ORDER BY display_order,id', [p.id]);
+                p.ranges = ranges;
+            }
+            activeParams = params;
+        } else {
+            activeParams = memoryScoringParameters.filter(p => p.is_active);
+        }
+
+        const values = await candidateScoringValues(email);
+
+        for (const p of activeParams) {
+            const val = values[p.candidate_field];
+            const ranges = p.ranges || [];
+            let matched = null;
+            if (p.value_type === 'category') {
+                matched = ranges.find(r => String(val || '').toLowerCase() === String(r.category_value || '').toLowerCase());
+            } else {
+                const numVal = parseFloat(val);
+                if (!isNaN(numVal)) {
+                    matched = ranges.find(r => numVal >= parseFloat(r.min_value ?? 0) && numVal <= parseFloat(r.max_value ?? 100));
+                }
+            }
+
+            const earnedScore = matched ? Number(matched.assigned_score || 0) : 0;
+            weights.total_weight += earnedScore;
+
+            const key = (p.parameter_key || '').toLowerCase();
+            const field = (p.candidate_field || '').toLowerCase();
+
+            if (field.includes('medium') || key.includes('medium')) {
+                weights.medium_weight += earnedScore;
+            } else if (field === 'twelfth.score' || key.includes('twelfth') || key.includes('hsc')) {
+                weights.hsc_weight += earnedScore;
+            } else if (field === 'ug.score' || key === 'ug_cgpa' || key.includes('ug_degree')) {
+                weights.ug_degree_weight += earnedScore;
+            } else if (field === 'pg.score' || key === 'pg_cgpa' || key.includes('pg_degree')) {
+                weights.pg_degree_weight += earnedScore;
+            } else if (field === 'mphil.score' || key.includes('mphil')) {
+                weights.mphil_weight += earnedScore;
+            } else if (field === 'ug.first_attempt' || key.includes('ug_first_attempt')) {
+                weights.ug_first_attempt_weight += earnedScore;
+            } else if (field === 'pg.first_attempt' || key.includes('pg_first_attempt')) {
+                weights.pg_first_attempt_weight += earnedScore;
+            } else if (field.includes('certifications') || key.includes('nptel') || key.includes('swayam') || key.includes('cert')) {
+                weights.certification_weight += earnedScore;
+            }
+        }
+    } catch (e) {
+        console.warn('Detailed weights calculation error:', e.message);
+    }
+
+    return weights;
 }
 
 app.get('/api/scoring/candidate', async (req, res) => {
@@ -1179,9 +1870,88 @@ app.get('/api/dropdowns', async (req, res) => {
     }
 });
 
+async function ensureArtsPgSpecializationSeedOptions() {
+    if (!isDbConnected() || !getPool()) return;
+    try {
+        const seedItems = [
+            // English
+            { cat: 'pg_domain_english', val: 'English', lbl: 'English' },
+            { cat: 'pg_domain_english', val: 'English Literature', lbl: 'English Literature' },
+            { cat: 'pg_domain_english', val: 'ELT (English Language Teaching)', lbl: 'ELT (English Language Teaching)' },
+            { cat: 'pg_domain_english', val: 'British Literature', lbl: 'British Literature' },
+            { cat: 'pg_domain_english', val: 'Linguistics', lbl: 'Linguistics' },
+            { cat: 'pg_domain_english', val: 'Indian Writing in English', lbl: 'Indian Writing in English' },
+            { cat: 'pg_domain_english', val: 'Comparative Literature', lbl: 'Comparative Literature' },
+            { cat: 'pg_domain_english', val: 'Gender & Cultural Studies', lbl: 'Gender & Cultural Studies' },
+
+            // Tamil
+            { cat: 'pg_domain_tamil', val: 'Tamil', lbl: 'Tamil' },
+            { cat: 'pg_domain_tamil', val: 'Tamil Literature', lbl: 'Tamil Literature' },
+            { cat: 'pg_domain_tamil', val: 'Sangam Literature', lbl: 'Sangam Literature' },
+            { cat: 'pg_domain_tamil', val: 'Modern Tamil Literature', lbl: 'Modern Tamil Literature' },
+            { cat: 'pg_domain_tamil', val: 'Tamil Grammar & Linguistics', lbl: 'Tamil Grammar & Linguistics' },
+            { cat: 'pg_domain_tamil', val: 'Folk Literature & Culture', lbl: 'Folk Literature & Culture' },
+            { cat: 'pg_domain_tamil', val: 'Tamil Journalism & Mass Media', lbl: 'Tamil Journalism & Mass Media' },
+
+            // Mathematics
+            { cat: 'pg_domain_maths', val: 'Mathematics', lbl: 'Mathematics' },
+            { cat: 'pg_domain_maths', val: 'Applied Mathematics', lbl: 'Applied Mathematics' },
+            { cat: 'pg_domain_maths', val: 'Pure Mathematics', lbl: 'Pure Mathematics' },
+            { cat: 'pg_domain_maths', val: 'Statistics & Probability', lbl: 'Statistics & Probability' },
+            { cat: 'pg_domain_maths', val: 'Operations Research', lbl: 'Operations Research' },
+            { cat: 'pg_domain_maths', val: 'Algebra & Topology', lbl: 'Algebra & Topology' },
+            { cat: 'pg_domain_maths', val: 'Fluid Dynamics', lbl: 'Fluid Dynamics' },
+
+            // Physics
+            { cat: 'pg_domain_physics', val: 'Physics', lbl: 'Physics' },
+            { cat: 'pg_domain_physics', val: 'Condensed Matter Physics', lbl: 'Condensed Matter Physics' },
+            { cat: 'pg_domain_physics', val: 'Nuclear & Particle Physics', lbl: 'Nuclear & Particle Physics' },
+            { cat: 'pg_domain_physics', val: 'Quantum Physics', lbl: 'Quantum Physics' },
+            { cat: 'pg_domain_physics', val: 'Applied Electronics', lbl: 'Applied Electronics' },
+            { cat: 'pg_domain_physics', val: 'Materials Science', lbl: 'Materials Science' },
+            { cat: 'pg_domain_physics', val: 'Nanoscience & Nanotechnology', lbl: 'Nanoscience & Nanotechnology' },
+
+            // Chemistry
+            { cat: 'pg_domain_chemistry', val: 'Chemistry', lbl: 'Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Organic Chemistry', lbl: 'Organic Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Inorganic Chemistry', lbl: 'Inorganic Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Physical Chemistry', lbl: 'Physical Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Analytical Chemistry', lbl: 'Analytical Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Polymer Chemistry', lbl: 'Polymer Chemistry' },
+            { cat: 'pg_domain_chemistry', val: 'Environmental Chemistry', lbl: 'Environmental Chemistry' },
+
+            // Arts & Science
+            { cat: 'pg_domain_arts', val: 'Tamil', lbl: 'Tamil' },
+            { cat: 'pg_domain_arts', val: 'English', lbl: 'English' },
+            { cat: 'pg_domain_arts', val: 'Humanities & Social Sciences', lbl: 'Humanities & Social Sciences' },
+            { cat: 'pg_domain_arts', val: 'History & Heritage Studies', lbl: 'History & Heritage Studies' },
+            { cat: 'pg_domain_arts', val: 'Economics & Public Policy', lbl: 'Economics & Public Policy' },
+            { cat: 'pg_domain_arts', val: 'General Arts & Science PG', lbl: 'General Arts & Science PG' },
+
+            // Application Section Controls
+            { cat: 'app_section', val: 'section_experience', lbl: 'Work & Teaching Experience' },
+            { cat: 'app_section', val: 'section_research', lbl: 'Research & Consultancy Projects' },
+            { cat: 'app_section', val: 'sub_section_journals', lbl: 'Journal Publications (SCI & Scopus)' },
+            { cat: 'app_section', val: 'sub_section_projects', lbl: 'Funded Research Projects' },
+            { cat: 'app_section', val: 'sub_section_consultancy', lbl: 'Funded Consultancy Assignments' },
+            { cat: 'app_section', val: 'section_certifications', lbl: 'Certifications & Achievements' }
+        ];
+
+        for (const item of seedItems) {
+            await getPool().query(
+                'INSERT IGNORE INTO dropdown_options (category, option_value, option_label, is_active) VALUES (?, ?, ?, 1)',
+                [item.cat, item.val, item.lbl]
+            );
+        }
+    } catch (e) {
+        console.warn('Warning seeding Arts PG Specializations:', e.message);
+    }
+}
+
 // Admin Endpoint: Fetch all dropdown options (including disabled ones)
 app.get('/api/admin/dropdowns', async (req, res) => {
     try {
+        await ensureArtsPgSpecializationSeedOptions();
         if (isDbConnected() && getPool()) {
             const [rows] = await getPool().query('SELECT * FROM dropdown_options ORDER BY category ASC, display_order ASC, id ASC');
             const seen = new Set();
@@ -1265,6 +2035,52 @@ app.get('/api/departments/:code/pg-domains', async (req, res) => {
     }
 });
 
+app.get('/api/universities', async (req, res) => {
+    try {
+        const defaultUniversities = [
+            'Anna University',
+            'Anna University, Chennai',
+            'Anna University, Tirunelveli',
+            'Madurai Kamaraj University',
+            'Manonmaniam Sundaranar University',
+            'Bharathiar University',
+            'University of Madras',
+            'Bharathidasan University',
+            'Alagappa University',
+            'Annamalai University',
+            'Periyar University',
+            'Kalasalingam Academy of Research and Education',
+            'SRM Institute of Science and Technology',
+            'Vellore Institute of Technology (VIT)',
+            'SASTRA Deemed University',
+            'Amrita Vishwa Vidyapeetham',
+            'Karunya Institute of Technology and Sciences',
+            'Sathyabama Institute of Science and Technology',
+            'National Institute of Technology, Tiruchirappalli (NITT)',
+            'Indian Institute of Technology, Madras (IITM)',
+            'Tamil Nadu State Board',
+            'Central Board of Secondary Education (CBSE)',
+            'Indian Certificate of Secondary Education (ICSE)',
+            'State Board of Technical Education and Training (DOTE)',
+            'Deemed University',
+            'Autonomous Institution University'
+        ];
+        if (isDbConnected() && getPool()) {
+            try {
+                const [rows] = await getPool().query("SELECT option_label FROM dropdown_options WHERE category = 'university' AND is_active = 1 ORDER BY display_order, option_label");
+                if (rows && rows.length > 0) {
+                    const dbList = rows.map(r => r.option_label);
+                    const merged = Array.from(new Set([...defaultUniversities, ...dbList])).sort();
+                    return res.json({ success: true, data: merged });
+                }
+            } catch (e) { }
+        }
+        res.json({ success: true, data: defaultUniversities.sort() });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 // Admin Endpoint: Add a new dropdown option
 app.post('/api/admin/dropdowns', async (req, res) => {
     try {
@@ -1284,10 +2100,29 @@ app.post('/api/admin/dropdowns', async (req, res) => {
         }
 
         if (isDbConnected() && getPool()) {
-            await getPool().query(
-                'INSERT INTO dropdown_options (category, option_value, option_label, parent_id, is_active) VALUES (?, ?, ?, ?, 1)',
-                [cat, val, lbl, pId]
-            );
+            try {
+                await getPool().query(
+                    'INSERT INTO dropdown_options (category, option_value, option_label, parent_id, is_active) VALUES (?, ?, ?, ?, 1)',
+                    [cat, val, lbl, pId]
+                );
+            } catch (queryErr) {
+                if (queryErr.code === 'ER_BAD_FIELD_ERROR' && queryErr.sqlMessage?.includes('parent_id')) {
+                    try {
+                        await getPool().query('ALTER TABLE dropdown_options ADD COLUMN parent_id INT DEFAULT NULL');
+                        await getPool().query(
+                            'INSERT INTO dropdown_options (category, option_value, option_label, parent_id, is_active) VALUES (?, ?, ?, ?, 1)',
+                            [cat, val, lbl, pId]
+                        );
+                    } catch (retryErr) {
+                        await getPool().query(
+                            'INSERT INTO dropdown_options (category, option_value, option_label, is_active) VALUES (?, ?, ?, 1)',
+                            [cat, val, lbl]
+                        );
+                    }
+                } else {
+                    throw queryErr;
+                }
+            }
         } else {
             const newId = memoryDropdowns.length ? Math.max(...memoryDropdowns.map(d => d.id)) + 1 : 1;
             memoryDropdowns.push({
@@ -1633,17 +2468,24 @@ app.get('/api/admin/applications', async (req, res) => {
                     u.department,
                     u.created_at AS registered_at,
                     p.full_name,
+                    p.gender,
+                    p.gender_other,
                     p.post,
                     p.post_other,
                     p.applied_date,
                     p.photo_path,
                     p.phone,
                     p.updated_at AS last_updated,
-                    GROUP_CONCAT(DISTINCT NULLIF(COALESCE(e.institution_name, e.institution_other), '') SEPARATOR ' || ') AS institutions
+                    e.institutions
                 FROM users u
-                INNER JOIN personal_info p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != '' AND p.phone IS NOT NULL AND TRIM(p.phone) != ''
-                INNER JOIN user_education e ON u.email = e.user_email
-                GROUP BY u.id, u.email, u.department, u.created_at, p.full_name, p.post, p.post_other, p.applied_date, p.photo_path, p.phone, p.updated_at
+                INNER JOIN personal_info p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != '' AND p.phone IS NOT NULL AND TRIM(p.phone) != '' AND p.applied_date IS NOT NULL
+                LEFT JOIN (
+                    SELECT 
+                        user_email,
+                        GROUP_CONCAT(DISTINCT NULLIF(COALESCE(institution_name, institution_other), '') SEPARATOR ' || ') AS institutions
+                    FROM user_education
+                    GROUP BY user_email
+                ) e ON u.email = e.user_email
                 ORDER BY u.created_at DESC;
             `;
             const [rows] = await getPool().query(sql);
@@ -1654,7 +2496,7 @@ app.get('/api/admin/applications', async (req, res) => {
         } else {
             const apps = [];
             for (const u of memoryUsers) {
-                const p = memoryPersonal.find(per => per.user_email === u.email && per.full_name && per.full_name.trim() !== '');
+                const p = memoryPersonal.find(per => per.user_email === u.email && per.full_name && per.full_name.trim() !== '' && per.applied_date);
                 if (p) {
                     const score = await computeCandidateTotalScore(u.email);
                     apps.push({
@@ -1663,6 +2505,8 @@ app.get('/api/admin/applications', async (req, res) => {
                         department: u.department,
                         registered_at: u.created_at,
                         full_name: p.full_name,
+                        gender: p.gender || '',
+                        gender_other: p.gender_other || null,
                         post: p.post || 'Assistant Professor',
                         post_other: p.post_other || null,
                         applied_date: p.applied_date || new Date().toISOString().split('T')[0],
@@ -1745,7 +2589,7 @@ function escapeCsvCell(val) {
 
 const exportApplicantCsvHandler = async (req, res) => {
     try {
-        const { department, post, designation, fromDate, toDate } = req.query;
+        const { department, post, designation, fromDate, toDate, email } = req.query;
         const targetPost = post || designation;
 
         // Date validation check
@@ -1781,11 +2625,16 @@ const exportApplicantCsvHandler = async (req, res) => {
                     INNER JOIN (
                         SELECT MAX(id) AS max_id FROM personal_info GROUP BY user_email
                     ) latest ON p1.id = latest.max_id
-                ) p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != ''
+                ) p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != '' AND p.applied_date IS NOT NULL
                 LEFT JOIN user_phd_details phd ON u.email = phd.user_email
                 WHERE 1=1
             `;
             const params = [];
+
+            if (email && email.trim()) {
+                sql += ` AND (LOWER(u.email) = LOWER(?) OR LOWER(p.user_email) = LOWER(?))`;
+                params.push(email.trim(), email.trim());
+            }
 
             if (department && department.toLowerCase() !== 'all') {
                 sql += ` AND LOWER(u.department) = LOWER(?)`;
@@ -1795,6 +2644,17 @@ const exportApplicantCsvHandler = async (req, res) => {
             if (targetPost && targetPost.toLowerCase() !== 'all') {
                 sql += ` AND LOWER(p.post) = LOWER(?)`;
                 params.push(targetPost.trim());
+            }
+
+            if (req.query.gender && req.query.gender.toLowerCase() !== 'all') {
+                const gVal = req.query.gender.trim().toLowerCase();
+                if (gVal === 'male' || gVal === 'm') {
+                    sql += ` AND (LOWER(p.gender) = 'male' OR LOWER(p.gender) = 'm')`;
+                } else if (gVal === 'female' || gVal === 'f') {
+                    sql += ` AND (LOWER(p.gender) = 'female' OR LOWER(p.gender) = 'f')`;
+                } else {
+                    sql += ` AND LOWER(p.gender) NOT IN ('male', 'female', 'm', 'f') AND p.gender IS NOT NULL AND TRIM(p.gender) != ''`;
+                }
             }
 
             if (fromDate) {
@@ -1811,20 +2671,52 @@ const exportApplicantCsvHandler = async (req, res) => {
 
             const [dbRows] = await getPool().query(sql, params);
 
-            // Fetch education for mapped rows
+            // Fetch education & PhD details for mapped rows
             for (const r of dbRows) {
-                const [eduRows] = await getPool().query('SELECT * FROM user_education WHERE user_email = ?', [r.user_email_val]);
+                const userEmail = (r.user_email_val || r.email || '').trim();
+
+                const [eduRows] = await getPool().query('SELECT * FROM user_education WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?))', [userEmail]);
                 const byType = {};
                 (eduRows || []).forEach(e => { if (e.qual_type) byType[e.qual_type] = e; });
                 r.educationMap = byType;
+
+                let phdObj = {};
+                try {
+                    const [phdRows] = await getPool().query('SELECT * FROM user_phd_details WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?)) ORDER BY id DESC LIMIT 1', [userEmail]);
+                    if (phdRows && phdRows.length > 0) {
+                        phdObj = phdRows[0];
+                    } else {
+                        const [rawPhdRows] = await getPool().query('SELECT * FROM tbl_User_Phd_Details WHERE LOWER(TRIM(txt_User_Email)) = LOWER(TRIM(?)) ORDER BY int_Phd_Id DESC LIMIT 1', [userEmail]);
+                        if (rawPhdRows && rawPhdRows.length > 0) {
+                            const rp = rawPhdRows[0];
+                            phdObj = {
+                                university: rp.txt_University,
+                                title: rp.txt_Thesis_Title,
+                                guide_name: rp.txt_Guide_Name,
+                                guide_college: rp.txt_Guide_College,
+                                status: rp.txt_Status,
+                                year_of_registration: rp.int_Year_Of_Registration,
+                                year_of_completion: rp.int_Year_Of_Completion,
+                                no_of_publications_during_phd: rp.int_Publications_During_Phd,
+                                no_of_publications_post_phd: rp.int_Publications_Post_Phd,
+                                post_phd_experience: rp.txt_Post_Phd_Experience,
+                                no_of_awards: rp.int_No_Of_Awards
+                            };
+                        }
+                    }
+                } catch (phdErr) {
+                    console.warn('PhD export fetch error:', phdErr.message);
+                }
+                r.phdObj = phdObj;
             }
             applicantRows = dbRows;
         } else {
             // Memory Fallback
             applicantRows = memoryUsers.map(u => {
-                const p = memoryPersonal.find(per => per.user_email === u.email) || {};
-                const phd = memoryPhd.find(ph => ph.user_email === u.email) || {};
-                const eduRows = memoryEducation.filter(e => e.user_email === u.email);
+                const userEmail = (u.email || '').toLowerCase().trim();
+                const p = memoryPersonal.find(per => (per.user_email || '').toLowerCase().trim() === userEmail) || {};
+                const phd = memoryPhd.find(ph => (ph.user_email || '').toLowerCase().trim() === userEmail) || {};
+                const eduRows = memoryEducation.filter(e => (e.user_email || '').toLowerCase().trim() === userEmail);
                 const byType = {};
                 eduRows.forEach(e => { if (e.qual_type) byType[e.qual_type] = e; });
 
@@ -1845,11 +2737,21 @@ const exportApplicantCsvHandler = async (req, res) => {
                     phd_pub_post: phd.no_of_publications_post_phd,
                     phd_post_exp: phd.post_phd_experience,
                     phd_awards_count: phd.no_of_awards,
+                    phdObj: phd,
                     educationMap: byType
                 };
-            }).filter(r => r.full_name && r.full_name.trim() !== '');
+            }).filter(r => r.full_name && r.full_name.trim() !== '' && r.applied_date);
 
             // Apply Memory Filtering
+            if (email && email.trim()) {
+                const targetEmail = email.trim().toLowerCase();
+                applicantRows = applicantRows.filter(r =>
+                    (r.user_email_val && r.user_email_val.toLowerCase() === targetEmail) ||
+                    (r.email && r.email.toLowerCase() === targetEmail) ||
+                    (r.user_email && r.user_email.toLowerCase() === targetEmail)
+                );
+            }
+
             if (department && department.toLowerCase() !== 'all') {
                 const targetDept = department.trim().toLowerCase();
                 applicantRows = applicantRows.filter(r =>
@@ -1912,11 +2814,10 @@ const exportApplicantCsvHandler = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No applicants found for the selected filters.' });
         }
 
-        // 80 Exact Headers in exact specification order
         const CSV_HEADERS = [
             'userId', 'fullName', 'dateOfBirth', 'age', 'gender', 'communicationAddress',
             'permanentAddress', 'religion', 'community', 'caste', 'email', 'mobileNumber',
-            'post', 'department', 'appliedDate', 'photo', 'user_id', 'tenth_institution',
+            'post', 'department', 'appliedDate', 'user_id', 'tenth_institution',
             'tenth_university', 'tenth_medium', 'tenth_cgpa_percentage', 'tenth_first_attempt',
             'tenth_year', 'twelfth_institution', 'twelfth_university', 'twelfth_medium',
             'twelfth_cgpa_percentage', 'twelfth_first_attempt', 'twelfth_year', 'ug_institution',
@@ -1936,13 +2837,16 @@ const exportApplicantCsvHandler = async (req, res) => {
         const csvLines = [];
         csvLines.push(CSV_HEADERS.join(','));
 
-        applicantRows.forEach((r) => {
+        for (const r of applicantRows) {
             const eduMap = r.educationMap || {};
             const tenth = eduMap.tenth || {};
             const twelfth = eduMap.twelfth || {};
             const ug = eduMap.ug || {};
             const pg = eduMap.pg || {};
             const mphil = eduMap.mphil || {};
+
+            const userEmail = (r.user_email_val || r.email || '').trim();
+            const weights = await computeCandidateDetailedWeights(userEmail);
 
             const appliedDateVal = r.applied_date ? String(r.applied_date).substring(0, 10) : (r.created_at ? String(r.created_at).substring(0, 10) : '');
             const createdAtVal = r.created_at ? String(r.created_at).replace('T', ' ').substring(0, 19) : (r.user_created_val ? String(r.user_created_val).replace('T', ' ').substring(0, 19) : '');
@@ -1964,12 +2868,11 @@ const exportApplicantCsvHandler = async (req, res) => {
                 escapeCsvCell(r.post),
                 escapeCsvCell(r.user_dept_val || r.department),
                 escapeCsvCell(appliedDateVal),
-                escapeCsvCell(r.photo_path),
                 escapeCsvCell(r.user_id_val || r.id),
 
                 // Tenth
                 escapeCsvCell(tenth.institution_name || tenth.institution_other),
-                escapeCsvCell(''), // tenth_university
+                escapeCsvCell(tenth.university_name || tenth.university_other),
                 escapeCsvCell(tenth.medium || tenth.medium_other),
                 escapeCsvCell(tenth.percentage),
                 escapeCsvCell(tenth.first_attempt),
@@ -1977,7 +2880,7 @@ const exportApplicantCsvHandler = async (req, res) => {
 
                 // Twelfth
                 escapeCsvCell(twelfth.institution_name || twelfth.institution_other),
-                escapeCsvCell(''), // twelfth_university
+                escapeCsvCell(twelfth.university_name || twelfth.university_other),
                 escapeCsvCell(twelfth.medium || twelfth.medium_other),
                 escapeCsvCell(twelfth.percentage),
                 escapeCsvCell(twelfth.first_attempt),
@@ -1985,7 +2888,7 @@ const exportApplicantCsvHandler = async (req, res) => {
 
                 // UG
                 escapeCsvCell(ug.institution_name || ug.institution_other),
-                escapeCsvCell(''), // ug_university
+                escapeCsvCell(ug.university_name || ug.university_other),
                 escapeCsvCell(ug.medium || ug.medium_other),
                 escapeCsvCell(ug.specialization || ug.specialization_other),
                 escapeCsvCell(ug.degree || ug.degree_other),
@@ -1995,7 +2898,7 @@ const exportApplicantCsvHandler = async (req, res) => {
 
                 // PG
                 escapeCsvCell(pg.institution_name || pg.institution_other),
-                escapeCsvCell(''), // pg_university
+                escapeCsvCell(pg.university_name || pg.university_other),
                 escapeCsvCell(pg.medium || pg.medium_other),
                 escapeCsvCell(pg.specialization || pg.specialization_other),
                 escapeCsvCell(pg.degree || pg.degree_other),
@@ -2005,7 +2908,7 @@ const exportApplicantCsvHandler = async (req, res) => {
 
                 // MPhil
                 escapeCsvCell(mphil.institution_name || mphil.institution_other),
-                escapeCsvCell(''), // mphil_university
+                escapeCsvCell(mphil.university_name || mphil.university_other),
                 escapeCsvCell(mphil.medium || mphil.medium_other),
                 escapeCsvCell(mphil.specialization || mphil.specialization_other),
                 escapeCsvCell(mphil.degree || mphil.degree_other),
@@ -2013,41 +2916,41 @@ const exportApplicantCsvHandler = async (req, res) => {
                 escapeCsvCell(mphil.first_attempt),
                 escapeCsvCell(mphil.year_of_passing),
 
-                // ID & Weights placeholder cells
+                // ID & Weights cells
                 escapeCsvCell(r.id),
-                escapeCsvCell(''), // medium_weight
-                escapeCsvCell(''), // hsc_weight
-                escapeCsvCell(''), // ug_degree_weight
-                escapeCsvCell(''), // pg_degree_weight
-                escapeCsvCell(''), // mphil_weight
-                escapeCsvCell(''), // ug_first_attempt_weight
-                escapeCsvCell(''), // pg_first_attempt_weight
-                escapeCsvCell(''), // total_weight
+                escapeCsvCell(weights.medium_weight),
+                escapeCsvCell(weights.hsc_weight),
+                escapeCsvCell(weights.ug_degree_weight),
+                escapeCsvCell(weights.pg_degree_weight),
+                escapeCsvCell(weights.mphil_weight),
+                escapeCsvCell(weights.ug_first_attempt_weight),
+                escapeCsvCell(weights.pg_first_attempt_weight),
+                escapeCsvCell(weights.total_weight),
 
                 escapeCsvCell(createdAtVal),
                 escapeCsvCell(updatedAtVal),
                 escapeCsvCell(''), // count
 
                 // PhD
-                escapeCsvCell(r.phd_university),
-                escapeCsvCell(r.phd_title),
-                escapeCsvCell(r.phd_guide_name),
-                escapeCsvCell(r.phd_status),
-                escapeCsvCell(r.phd_year_reg),
-                escapeCsvCell(r.phd_year_comp),
-                escapeCsvCell(r.phd_pub_during),
-                escapeCsvCell(r.phd_pub_post),
-                escapeCsvCell(r.phd_post_exp),
-                escapeCsvCell(r.phd_guide_college),
+                escapeCsvCell((r.phdObj || {}).university || (r.phdObj || {}).txt_University || r.phd_university || ''),
+                escapeCsvCell((r.phdObj || {}).title || (r.phdObj || {}).txt_Thesis_Title || r.phd_title || ''),
+                escapeCsvCell((r.phdObj || {}).guide_name || (r.phdObj || {}).txt_Guide_Name || r.phd_guide_name || ''),
+                escapeCsvCell((r.phdObj || {}).status || (r.phdObj || {}).phd_status || r.phd_status || ''),
+                escapeCsvCell((r.phdObj || {}).year_of_registration || (r.phdObj || {}).int_Year_Of_Registration || r.phd_year_reg || ''),
+                escapeCsvCell((r.phdObj || {}).year_of_completion || (r.phdObj || {}).int_Year_Of_Completion || r.phd_year_comp || ''),
+                escapeCsvCell((r.phdObj || {}).no_of_publications_during_phd ?? (r.phdObj || {}).int_Publications_During_Phd ?? r.phd_pub_during ?? ''),
+                escapeCsvCell((r.phdObj || {}).no_of_publications_post_phd ?? (r.phdObj || {}).int_Publications_Post_Phd ?? r.phd_pub_post ?? ''),
+                escapeCsvCell((r.phdObj || {}).post_phd_experience || (r.phdObj || {}).txt_Post_Phd_Experience || r.phd_post_exp || ''),
+                escapeCsvCell((r.phdObj || {}).guide_college || (r.phdObj || {}).txt_Guide_College || r.phd_guide_college || ''),
                 escapeCsvCell(''), // family
                 escapeCsvCell(''), // reference
                 escapeCsvCell(''), // any_other_info
                 escapeCsvCell(''), // awards_details
-                escapeCsvCell(r.phd_awards_count)
+                escapeCsvCell((r.phdObj || {}).no_of_awards ?? (r.phdObj || {}).int_No_Of_Awards ?? r.phd_awards_count ?? 0)
             ];
 
             csvLines.push(rowData.join(','));
-        });
+        }
 
         const csvContent = csvLines.join('\n');
 
@@ -2063,7 +2966,12 @@ const exportApplicantCsvHandler = async (req, res) => {
         } else {
             dateLabel = `_All_Dates`;
         }
-        const filename = `Applicants_${deptLabel}${dateLabel}.csv`;
+        let filename = `Applicants_${deptLabel}${dateLabel}.csv`;
+        if (email && email.trim()) {
+            const firstRow = applicantRows[0];
+            const candidateName = firstRow && firstRow.full_name ? firstRow.full_name.trim().replace(/\s+/g, '_') : email.trim().replace(/[^a-zA-Z0-9]/g, '_');
+            filename = `Candidate_Report_${candidateName}.csv`;
+        }
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

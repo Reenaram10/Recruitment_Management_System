@@ -15,6 +15,8 @@ export const PrintableApplicationForm = ({ application, score }) => {
     const rawEdu = application.education || [];
     const rawExp = application.experience || [];
     const rawCerts = application.certifications || [];
+    const awards = application.awards || [];
+    const otherDetails = application.other_details || {};
     const phd = application.phd_details || {};
     const evalScore = score || application.score || null;
 
@@ -231,21 +233,129 @@ export const PrintableApplicationForm = ({ application, score }) => {
                             <th>Awards Received</th>
                             <td>{phd.no_of_awards ?? 0}</td>
                         </tr>
-                        <tr>
-                            <th>Funded Projects</th>
-                            <td>{phd.no_of_funded_projects ?? 0}</td>
-                            <th>Funded Consultancy</th>
-                            <td>{phd.no_of_funded_consultancy ?? 0}</td>
-                        </tr>
-                        <tr>
-                            <th>Guided Ph.D Scholars</th>
-                            <td>{phd.guided_phd_scholars ?? 0}</td>
-                            <th>Patents Granted/Filed</th>
-                            <td>{phd.patents ?? 0}</td>
-                        </tr>
                     </tbody>
                 </table>
             </div>
+
+            {/* 3b. FUNDED RESEARCH PROJECTS & CONSULTANCY */}
+            {((application.research_projects && application.research_projects.length > 0) || (application.funded_consultancy && application.funded_consultancy.length > 0) || (application.journal_publications && application.journal_publications.length > 0)) && (
+                <div className="pdf-section">
+                    <h3 className="pdf-section-heading">3b. Research Projects, Consultancy &amp; Journal Publications</h3>
+                    {application.research_projects && application.research_projects.length > 0 && (
+                        <div style={{ marginBottom: '0.8rem' }}>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '0.3rem' }}>Funded Research Projects</h4>
+                            <table className="pdf-table data-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '5%', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ width: '15%' }}>PI Name</th>
+                                        <th style={{ width: '12%' }}>Co-PI Names</th>
+                                        <th style={{ width: '22%' }}>Project Title</th>
+                                        <th style={{ width: '12%' }}>Industry</th>
+                                        <th style={{ width: '12%' }}>Duration</th>
+                                        <th style={{ width: '10%' }}>Amount (₹)</th>
+                                        <th style={{ width: '12%' }}>Organization</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {application.research_projects.map((proj, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                            <td>{proj.pi_name || 'N/A'}</td>
+                                            <td>{proj.co_pi_names || 'None'}</td>
+                                            <td><strong>{proj.project_title}</strong></td>
+                                            <td>{proj.industry || '-'}</td>
+                                            <td>
+                                                {proj.from_date && proj.to_date
+                                                    ? `${new Date(proj.from_date).toLocaleDateString('en-US')} - ${new Date(proj.to_date).toLocaleDateString('en-US')}`
+                                                    : proj.year || '-'}
+                                            </td>
+                                            <td style={{ fontWeight: 700, color: '#047857' }}>
+                                                {proj.amount ? `₹${parseFloat(proj.amount).toLocaleString('en-IN')}` : 'N/A'}
+                                            </td>
+                                            <td>{proj.funding_agency || proj.organization || 'N/A'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {application.funded_consultancy && application.funded_consultancy.length > 0 && (
+                        <div style={{ marginBottom: '0.8rem' }}>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#047857', marginBottom: '0.3rem' }}>Funded Consultancy Assignments</h4>
+                            <table className="pdf-table data-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '5%', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ width: '15%' }}>PI / Consultant</th>
+                                        <th style={{ width: '12%' }}>Co-PI / Team</th>
+                                        <th style={{ width: '22%' }}>Consultancy Title</th>
+                                        <th style={{ width: '12%' }}>Industry</th>
+                                        <th style={{ width: '12%' }}>Duration</th>
+                                        <th style={{ width: '10%' }}>Amount (₹)</th>
+                                        <th style={{ width: '12%' }}>Client Org</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {application.funded_consultancy.map((cons, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                            <td>{cons.pi_name || 'N/A'}</td>
+                                            <td>{cons.co_pi_names || 'None'}</td>
+                                            <td><strong>{cons.consultancy_title}</strong></td>
+                                            <td>{cons.industry || '-'}</td>
+                                            <td>
+                                                {cons.from_date && cons.to_date
+                                                    ? `${new Date(cons.from_date).toLocaleDateString('en-US')} - ${new Date(cons.to_date).toLocaleDateString('en-US')}`
+                                                    : cons.year || '-'}
+                                            </td>
+                                            <td style={{ fontWeight: 700, color: '#047857' }}>
+                                                {cons.amount ? `₹${parseFloat(cons.amount).toLocaleString('en-IN')}` : 'N/A'}
+                                            </td>
+                                            <td>{cons.client_org || cons.organization || 'N/A'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {application.journal_publications && application.journal_publications.length > 0 && (
+                        <div>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#6d28d9', marginBottom: '0.3rem' }}>Journal Publications (SCI &amp; Scopus)</h4>
+                            <table className="pdf-table data-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '5%', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ width: '10%' }}>Type</th>
+                                        <th style={{ width: '30%' }}>Paper Title</th>
+                                        <th style={{ width: '22%' }}>Journal &amp; Publisher</th>
+                                        <th style={{ width: '15%' }}>Vol / DOI</th>
+                                        <th style={{ width: '10%' }}>Date</th>
+                                        <th style={{ width: '8%' }}>Impact Factor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {application.journal_publications.map((pub, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                            <td style={{ textAlign: 'center', fontWeight: 700, color: pub.journal_type === 'Scopus' ? '#047857' : '#4338ca' }}>
+                                                {pub.journal_type || 'SCI'}
+                                            </td>
+                                            <td><strong>{pub.paper_title}</strong></td>
+                                            <td>{pub.journal_name} {pub.publisher ? `(${pub.publisher})` : ''}</td>
+                                            <td>{pub.vol_no || pub.doi || '-'}</td>
+                                            <td>{pub.publication_date ? new Date(pub.publication_date).toLocaleDateString('en-GB') : '-'}</td>
+                                            <td style={{ textAlign: 'center', fontWeight: 700 }}>{pub.impact_factor || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* 7. WORK EXPERIENCE */}
             <div className="pdf-section">
@@ -305,6 +415,84 @@ export const PrintableApplicationForm = ({ application, score }) => {
                                     <td style={{ textAlign: 'center', fontWeight: 700, color: '#16a34a' }}>{c.score || 'N/A'}</td>
                                 </tr>
                             ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* 8b. AWARDS, FAMILY DETAILS & REFERENCES */}
+            {(awards.length > 0 || otherDetails.ref1_name || otherDetails.spouse_name || otherDetails.other_achievements) && (
+                <div className="pdf-section">
+                    <h3 className="pdf-section-heading">6. Awards, Family Background &amp; References</h3>
+
+                    {awards.length > 0 && (
+                        <div style={{ marginBottom: '0.8rem' }}>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#d97706', marginBottom: '0.3rem' }}>Honors &amp; Awards Received</h4>
+                            <table className="pdf-table data-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '5%' }}>#</th>
+                                        <th style={{ width: '35%' }}>Award Title</th>
+                                        <th style={{ width: '30%' }}>Awarding Organization</th>
+                                        <th style={{ width: '15%' }}>Category</th>
+                                        <th style={{ width: '15%' }}>Year</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {awards.map((aw, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                                            <td><strong>{aw.title}</strong></td>
+                                            <td>{aw.organization || aw.awarding_body || 'N/A'}</td>
+                                            <td>{aw.category || 'National'}</td>
+                                            <td style={{ textAlign: 'center' }}>{aw.year || 'N/A'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    <table className="pdf-table">
+                        <tbody>
+                            <tr>
+                                <th style={{ width: '22%' }}>Spouse Name &amp; Occupation</th>
+                                <td style={{ width: '28%' }}>
+                                    {otherDetails.spouse_name ? `${otherDetails.spouse_name} (${otherDetails.spouse_occupation || 'N/A'})` : 'N/A'}
+                                </td>
+                                <th style={{ width: '22%' }}>Children / Dependents</th>
+                                <td style={{ width: '28%' }}>
+                                    {otherDetails.no_of_children || 0} Children / {otherDetails.no_of_dependents || 0} Dependents
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Father's Occupation</th>
+                                <td>{otherDetails.father_occupation || 'N/A'}</td>
+                                <th>Mother's Occupation</th>
+                                <td>{otherDetails.mother_occupation || 'N/A'}</td>
+                            </tr>
+                            {otherDetails.ref1_name && (
+                                <tr>
+                                    <th>Referee 1</th>
+                                    <td colSpan="3">
+                                        <strong>{otherDetails.ref1_name}</strong> ({otherDetails.ref1_designation}, {otherDetails.ref1_org}) — Ph: {otherDetails.ref1_phone || 'N/A'} | Email: {otherDetails.ref1_email || 'N/A'}
+                                    </td>
+                                </tr>
+                            )}
+                            {otherDetails.ref2_name && (
+                                <tr>
+                                    <th>Referee 2</th>
+                                    <td colSpan="3">
+                                        <strong>{otherDetails.ref2_name}</strong> ({otherDetails.ref2_designation}, {otherDetails.ref2_org}) — Ph: {otherDetails.ref2_phone || 'N/A'} | Email: {otherDetails.ref2_email || 'N/A'}
+                                    </td>
+                                </tr>
+                            )}
+                            {otherDetails.other_achievements && (
+                                <tr>
+                                    <th>Other Accomplishments</th>
+                                    <td colSpan="3">{otherDetails.other_achievements}</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

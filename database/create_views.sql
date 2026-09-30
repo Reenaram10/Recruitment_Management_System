@@ -36,6 +36,7 @@ SELECT
     int_Year_Of_Passing AS year_of_passing, txt_Medium AS medium, txt_Medium_Other AS medium_other, txt_First_Attempt AS first_attempt,
     txt_First_Class AS first_class, txt_Degree AS degree, txt_Degree_Other AS degree_other, txt_Specialization AS specialization,
     txt_Specialization_Other AS specialization_other, txt_Topic AS topic, txt_Institution_Name AS institution_name, txt_Institution_Other AS institution_other,
+    txt_University_Name AS university_name, txt_University_Other AS university_other,
     txt_Cert_Path AS cert_path, dte_Created_Date AS created_at
 FROM tbl_User_Education;
 
@@ -69,7 +70,28 @@ CREATE OR REPLACE VIEW school_village_names AS
 SELECT int_School_Id AS id, txt_School_Name AS school_name, txt_Village_Name AS village_name, txt_Full_Display AS full_display
 FROM tbl_School_Village_Names;
 
+CREATE OR REPLACE VIEW user_research_projects AS
+SELECT
+    int_Project_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+    txt_Students_Involved AS students_involved, txt_Project_Title AS project_title, txt_Industry AS industry,
+    dte_From_Date AS from_date, dte_To_Date AS to_date, txt_Funding_Agency AS funding_agency,
+    txt_Organization_Name AS organization_name, dec_Amount AS amount, int_Year AS year,
+    txt_Status AS status, txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc,
+    dte_Created_Date AS created_at
+FROM tbl_User_Research_Projects;
+
+CREATE OR REPLACE VIEW user_funded_consultancy AS
+SELECT
+    int_Consultancy_Id AS id, txt_User_Email AS user_email, txt_Pi_Name AS pi_name, txt_Co_Pi_Names AS co_pi_names,
+    txt_Students_Involved AS students_involved, txt_Consultancy_Title AS consultancy_title, txt_Industry AS industry,
+    dte_From_Date AS from_date, dte_To_Date AS to_date, txt_Client_Org AS client_org,
+    txt_Organization_Name AS organization_name, dec_Amount AS amount, int_Year AS year,
+    txt_Status AS status, txt_Proof_Doc_Path AS proof_doc, txt_Yearly_Report_Doc_Path AS yearly_report_doc,
+    dte_Created_Date AS created_at
+FROM tbl_User_Funded_Consultancy;
+
 CREATE OR REPLACE VIEW dropdown_options AS
 SELECT int_Option_Id AS id, txt_Category AS category, txt_Option_Value AS option_value, txt_Option_Label AS option_label, 
 txt_Active AS is_active, int_Display_Order AS display_order, dte_Created_Date AS created_at
 FROM tbl_Dropdown_Options;
+

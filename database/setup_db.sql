@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `personal_info` (
   `marital_status` VARCHAR(50) DEFAULT NULL,
   `spouse_name` VARCHAR(255) DEFAULT NULL,
   `marital_status_other` VARCHAR(100) DEFAULT NULL,
-  `photo_path` VARCHAR(255) DEFAULT NULL,
+  `photo_path` LONGBLOB DEFAULT NULL,
   `nationality` VARCHAR(100) DEFAULT NULL,
   `religion` VARCHAR(100) DEFAULT NULL,
   `religion_other` VARCHAR(100) DEFAULT NULL,
@@ -134,7 +134,7 @@ INSERT IGNORE INTO scoring_parameters (parameter_key, parameter_name, candidate_
 ('pg_institute','PG Institute','pg.institute','category',8),('pg_cgpa','PG CGPA','pg.score','number',9),('pg_first_attempt','PG First Attempt','pg.first_attempt','category',10),('pg_first_class','PG First Class','pg.first_class','category',11),
 ('mphil_score','M.Phil Score','mphil.score','number',12),('mphil_institute','M.Phil Institute','mphil.institute','category',13),('mphil_first_attempt','M.Phil First Attempt','mphil.first_attempt','category',14),('mphil_first_class','M.Phil First Class','mphil.first_class','category',15),
 ('phd_completion','Ph.D. Completion','phd.completed','category',16),('net','NET','ug.net_slet_score','number',17),('slet','SLET','ug.net_slet_score','number',18),('gate_score','GATE Score','ug.gate_score','number',19),('experience','Experience','experience.years','number',20),
-('publications_during_phd','Publications During Ph.D.','phd.publications_during','number',21),('awards','Awards','phd.awards','number',22),('nptel_course','NPTEL Course','certifications.nptel_count','number',23),('funded_projects','Funded Projects','phd.funded_projects','category',24),('funded_consultancy','Funded Consultancy','phd.funded_consultancy','category',25);
+('publications_during_phd','Publications During Ph.D.','phd.publications_during','number',21),('awards','Awards','phd.awards','number',22),('nptel_course','NPTEL / SWAYAM Course','certifications.nptel_count','number',23),('funded_projects','Funded Projects','phd.funded_projects','category',24),('funded_consultancy','Funded Consultancy','phd.funded_consultancy','category',25);
 
 -- 3. Education Information Table
 CREATE TABLE IF NOT EXISTS `user_education` (
@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS `user_education` (
   `topic` VARCHAR(255) DEFAULT NULL,
   `institution_name` VARCHAR(255) DEFAULT NULL,
   `institution_other` VARCHAR(255) DEFAULT NULL,
+  `university_name` VARCHAR(255) DEFAULT NULL,
+  `university_other` VARCHAR(255) DEFAULT NULL,
   `cert_path` VARCHAR(255) DEFAULT NULL,
   `ug_gate_score` VARCHAR(50) DEFAULT NULL,
   `ug_net_slet_score` VARCHAR(50) DEFAULT NULL,
@@ -244,6 +246,7 @@ CREATE TABLE IF NOT EXISTS `dropdown_options` (
   `category` VARCHAR(50) NOT NULL COMMENT 'department, post, gender, blood_group, marital_status, religion, community, phd_status',
   `option_value` VARCHAR(100) NOT NULL,
   `option_label` VARCHAR(150) NOT NULL,
+  `parent_id` INT DEFAULT NULL,
   `is_active` TINYINT(1) DEFAULT 1,
   `display_order` INT DEFAULT 0,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

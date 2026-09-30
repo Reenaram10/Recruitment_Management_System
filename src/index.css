@@ -181,28 +181,122 @@ body {
     background: var(--color-brand-hover);
 }
 
-/* Banner / Toast Notifications */
-.banner {
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-md);
+/* Modal and Form Action Buttons */
+.btn {
+    padding: 0.65rem 1.35rem;
+    border-radius: 8px;
     font-size: 0.88rem;
-    font-weight: 500;
-    margin-bottom: 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    outline: none;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: #ffffff !important;
+    border: none;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+    box-shadow: 0 6px 10px -1px rgba(37, 99, 235, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #eff6ff;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe;
+}
+
+.btn-secondary:hover {
+    background: #dbeafe;
+    color: #1e40af !important;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+}
+
+/* Banner / Floating Flash Toast Notifications at Bottom */
+.banner {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 99999;
+    padding: 0.85rem 1.25rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.65rem;
+    max-width: 480px;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.22), 0 4px 12px -2px rgba(0, 0, 0, 0.12);
+    animation: flashSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(8px);
+}
+
+@keyframes flashSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .banner.success {
     background: #ecfdf5;
     color: #065f46;
-    border: 1px solid #a7f3d0;
+    border: 1px solid #6ee7b7;
 }
 
 .banner.error {
     background: #fef2f2;
     color: #991b1b;
-    border: 1px solid #fecaca;
+    border: 1px solid #fca5a5;
+}
+
+.banner.info {
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+}
+
+.dark-theme .banner.success {
+    background: #064e3b !important;
+    color: #a7f3d0 !important;
+    border: 1px solid #059669 !important;
+}
+
+.dark-theme .banner.error {
+    background: #7f1d1d !important;
+    color: #fecaca !important;
+    border: 1px solid #dc2626 !important;
+}
+
+.dark-theme .banner.info {
+    background: #0c4a6e !important;
+    color: #bae6fd !important;
+    border: 1px solid #0284c7 !important;
+}
+
+@media (max-width: 640px) {
+    .banner {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: none;
+    }
 }
 
 /* Auth Page Dual-Panel Layout */
@@ -830,6 +924,12 @@ body.dark-theme,
     color: var(--color-text-muted);
 }
 
+.mandatory-star {
+    color: #ef4444 !important;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
 .input-wrap {
     position: relative;
 }
@@ -850,7 +950,7 @@ textarea {
     border-radius: var(--radius-md);
     background-color: white;
     color: var(--color-text-main);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
 input:focus,
@@ -859,6 +959,65 @@ textarea:focus {
     outline: none;
     border-color: var(--color-brand-primary);
     box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+/* Red Highlight for Mandatory & Invalid Fields */
+form.was-validated input:invalid,
+form.was-validated select:invalid,
+form.was-validated textarea:invalid,
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+input.input-error,
+select.input-error,
+textarea.input-error,
+input:user-invalid,
+select:user-invalid,
+textarea:user-invalid {
+    border: 2px solid #ef4444 !important;
+    background-color: #fef2f2 !important;
+    box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.25) !important;
+    animation: invalidPulse 0.3s ease-in-out;
+}
+
+form.was-validated input:invalid:focus,
+form.was-validated select:invalid:focus,
+form.was-validated textarea:invalid:focus,
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.35) !important;
+}
+
+@keyframes invalidPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.015);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Dark Theme Overrides for Invalid Fields */
+.dark-theme form.was-validated input:invalid,
+.dark-theme form.was-validated select:invalid,
+.dark-theme form.was-validated textarea:invalid,
+.dark-theme input.is-invalid,
+.dark-theme select.is-invalid,
+.dark-theme textarea.is-invalid,
+.dark-theme input:user-invalid,
+.dark-theme select:user-invalid,
+.dark-theme textarea:user-invalid {
+    border: 2px solid #f87171 !important;
+    background-color: #3f1717 !important;
+    color: #fef2f2 !important;
+    box-shadow: 0 0 0 3.5px rgba(248, 113, 113, 0.3) !important;
 }
 
 .pw-toggle {
@@ -878,6 +1037,10 @@ textarea:focus {
     color: var(--color-error);
     font-size: 0.8rem;
     margin-top: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 500;
 }
 
 .submit-btn {
@@ -2414,10 +2577,28 @@ body.dark-theme .scoring-param-item {
     margin-left: 260px;
     flex: 1;
     min-height: 100vh;
-    padding: 2rem 2.5rem;
+    padding: 2rem 2.5rem 6rem 2.5rem;
     background-color: #f4f6fa;
     width: calc(100% - 260px);
     transition: all 0.2s ease;
+}
+
+/* Candidate Profile Tab Navigation Actions Container */
+.profile-tab-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-right: 0;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+    .profile-tab-actions {
+        padding-right: 0;
+        margin-bottom: 4.5rem;
+    }
 }
 
 .profile-main-content.sidebar-collapsed {
@@ -3046,4 +3227,29 @@ body.dark-theme .scoring-param-item {
 .sidebar-collapsed .sidebar-logout-btn {
     justify-content: center;
     padding: 0.85rem;
+}
+
+/* Subtle vertical column divider lines ("minute lines") for tables */
+table th {
+    border-right: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+table th:last-child {
+    border-right: none !important;
+}
+
+table td {
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+table td:last-child {
+    border-right: none !important;
+}
+
+.dark-theme table th {
+    border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark-theme table td {
+    border-right: 1px solid #334155 !important;
 }
