@@ -169,87 +169,162 @@ const pgSpecializationMap = {
     'Other': ['Other']
 };
 
-const getDepartmentPgSpecializations = (degree, dept, ugDegree = '', ugSpec = '') => {
-    const uSpec = (ugSpec || '').toLowerCase();
-    const uDeg = (ugDegree || '').toLowerCase();
+const getDepartmentPgSpecializations = (degree, dept) => {
+    const rawDept = (dept || '').toUpperCase().trim();
 
-    if (degree === 'M.Sc.') {
-        const mscOptions = [];
+    const isEnglish = rawDept.includes('ENGLISH') || rawDept === 'ENG';
+    const isTamil = rawDept.includes('TAMIL') || rawDept === 'TAM';
+    const isMaths = rawDept.includes('MATH') || rawDept.includes('MATHEMATICS');
+    const isPhysics = rawDept.includes('PHYSIC') || rawDept.includes('PHY');
+    const isChemistry = rawDept.includes('CHEM') || rawDept.includes('CHEMISTRY');
+    const isArtsScience = rawDept.includes('ARTS') || rawDept.includes('HUMANITIES') || rawDept.includes('S&H') || rawDept.includes('SCIENCE & HUMANITIES') || rawDept.includes('SCIENCE AND HUMANITIES');
 
-        if (uSpec.includes('physics') || uSpec.includes('applied electronics')) {
-            mscOptions.push('Physics / Applied Electronics', 'Physics', 'Applied Electronics', 'Condensed Matter Physics', 'Materials Science', 'Nanoscience & Nanotechnology');
-        }
-        if (uSpec.includes('chemistry') || uSpec.includes('organic')) {
-            mscOptions.push('Chemistry / Organic Chemistry', 'Chemistry', 'Organic Chemistry', 'Inorganic Chemistry', 'Analytical Chemistry');
-        }
-        if (uSpec.includes('math') || uSpec.includes('stat')) {
-            mscOptions.push('Mathematics / Applied Mathematics', 'Mathematics', 'Applied Mathematics', 'Pure Mathematics', 'Statistics & Probability', 'Operations Research');
-        }
-        if (uSpec.includes('computer') || uSpec.includes('information') || uSpec.includes('data') || uSpec.includes('cyber') || uDeg.includes('b.c.a') || uSpec.includes('software') || uSpec.includes('ai')) {
-            mscOptions.push('Computer Science', 'Information Technology', 'Data Science & Analytics', 'Cyber Security', 'Software Engineering');
-        }
-        if (uSpec.includes('bio')) {
-            mscOptions.push('Biotechnology', 'Bioinformatics');
-        }
-
-        const defaultMsc = [
-            'Computer Science',
-            'Information Technology',
-            'Physics / Applied Electronics',
-            'Chemistry / Organic Chemistry',
-            'Mathematics / Applied Mathematics',
-            'Biotechnology',
-            'Data Science & Analytics',
-            'Software Engineering',
-            'Cyber Security',
-            'Other'
+    if (isEnglish) {
+        return [
+            'English',
+            'English Literature',
+            'ELT (English Language Teaching)',
+            'British Literature',
+            'Linguistics',
+            'Indian Writing in English',
+            'Comparative Literature'
         ];
-
-        return Array.from(new Set([...mscOptions, ...defaultMsc]));
     }
 
-    if (degree === 'M.A.') {
-        return pgSpecializationMap['M.A.'] || ['Other'];
+    if (isTamil) {
+        return [
+            'Tamil',
+            'Tamil Literature',
+            'Sangam Literature',
+            'Modern Tamil Literature',
+            'Tamil Grammar & Linguistics',
+            'Folk Literature & Culture'
+        ];
     }
 
-    if (degree === 'M.Com.') {
-        return pgSpecializationMap['M.Com.'] || ['Other'];
+    if (isMaths) {
+        return [
+            'Mathematics',
+            'Applied Mathematics',
+            'Pure Mathematics',
+            'Statistics & Probability',
+            'Operations Research',
+            'Algebra & Topology',
+            'Fluid Dynamics'
+        ];
     }
 
-    if (degree === 'M.C.A.') {
-        return pgSpecializationMap['M.C.A.'] || ['Other'];
+    if (isPhysics) {
+        return [
+            'Physics',
+            'Applied Electronics',
+            'Condensed Matter Physics',
+            'Nuclear & Particle Physics',
+            'Quantum Physics',
+            'Materials Science',
+            'Nanoscience & Nanotechnology'
+        ];
     }
 
-    if (degree === 'M.B.A.') {
-        return pgSpecializationMap['M.B.A.'] || ['Other'];
+    if (isChemistry) {
+        return [
+            'Chemistry',
+            'Organic Chemistry',
+            'Inorganic Chemistry',
+            'Physical Chemistry',
+            'Analytical Chemistry',
+            'Polymer Chemistry',
+            'Environmental Chemistry'
+        ];
     }
 
-    if (degree === 'M.E.' || degree === 'M.Tech.') {
-        const rawDept = (dept || '').toUpperCase().trim();
-        const uSpecUpper = (ugSpec || '').toUpperCase().trim();
+    if (isArtsScience) {
+        return [
+            'Tamil',
+            'Tamil Literature',
+            'English',
+            'English Literature',
+            'Mathematics',
+            'Physics',
+            'Chemistry',
+            'Humanities & Social Sciences',
+            'General Arts & Science'
+        ];
+    }
 
-        if (rawDept.includes('MECH') || uSpecUpper.includes('MECHANICAL')) {
-            return ['CAD / CAM & Product Design', 'Thermal Engineering', 'Mechatronics & Automation', 'Other'];
-        }
-        if (rawDept.includes('ECE') || uSpecUpper.includes('ELECTRONICS') || uSpecUpper.includes('COMMUNICATION')) {
-            return ['Embedded Systems', 'VLSI Design', 'Communication Systems', 'Signal Processing & AI', 'Wireless & Mobile Technologies', 'Robotics & Automation', 'Other'];
-        }
-        if (rawDept.includes('EEE') || uSpecUpper.includes('ELECTRICAL')) {
-            return ['Power Electronics & Drives', 'Power Systems Engineering', 'Renewable Energy Systems', 'Electric Vehicle (EV) Technology', 'Other'];
-        }
-        if (rawDept.includes('CIVIL') || uSpecUpper.includes('CIVIL')) {
-            return ['Structural Engineering', 'Environmental Engineering', 'Construction Engineering & Management', 'Other'];
-        }
-        if (rawDept.includes('CSE') || rawDept.includes('IT') || rawDept.includes('AIDS') || uSpecUpper.includes('COMPUTER')) {
-            return [
-                'Computational Intelligence', 'Blockchain Technology', 'AR / VR (Augmented & Virtual Reality)',
-                'Full Stack Web Development', 'Business Analytics', 'Cyber Security & Digital Forensics',
-                'Artificial Intelligence & Machine Learning', 'Data Science & Analytics', 'Cloud Computing & DevOps',
-                'Computer Science and Engineering', 'Information Technology', 'Software Engineering', 'Other'
-            ];
-        }
+    const isCseItAids = rawDept.includes('CSE') ||
+        rawDept.includes('IT') ||
+        rawDept.includes('AIDS') ||
+        rawDept.includes('COMPUTER') ||
+        rawDept.includes('INFORMATION TECHNOLOGY') ||
+        rawDept.includes('ARTIFICIAL INTELLIGENCE') ||
+        rawDept.includes('DATA SCIENCE');
 
-        return pgSpecializationMap[degree] || ['Other'];
+    const isEce = rawDept.includes('ECE') ||
+        rawDept.includes('ELECTRONICS') ||
+        rawDept.includes('COMMUNICATION');
+
+    const isEee = rawDept.includes('EEE') ||
+        rawDept.includes('ELECTRICAL');
+
+    const isMech = rawDept.includes('MECH') ||
+        rawDept.includes('MECHANICAL');
+
+    const isCivil = rawDept.includes('CIVIL');
+
+    if (isCseItAids) {
+        return [
+            'Computational Intelligence',
+            'Blockchain Technology',
+            'AR / VR (Augmented & Virtual Reality)',
+            'Full Stack Web Development',
+            'Business Analytics',
+            'Cyber Security & Digital Forensics',
+            'Artificial Intelligence & Machine Learning',
+            'Data Science & Analytics',
+            'Cloud Computing & DevOps',
+            'Computer Science and Engineering',
+            'Information Technology',
+            'Software Engineering',
+            'Computer Applications'
+        ];
+    }
+
+    if (isEce) {
+        return [
+            'Embedded Systems',
+            'VLSI Design',
+            'Communication Systems',
+            'Signal Processing & AI',
+            'Wireless & Mobile Technologies',
+            'Robotics & Automation',
+            'Communication Systems & Signal Processing'
+        ];
+    }
+
+    if (isEee) {
+        return [
+            'Power Electronics & Drives',
+            'Power Systems Engineering',
+            'Renewable Energy Systems',
+            'Electric Vehicle (EV) Technology'
+        ];
+    }
+
+    if (isMech) {
+        return [
+            'CAD / CAM & Product Design',
+            'Thermal Engineering',
+            'Mechatronics & Automation'
+        ];
+    }
+
+    if (isCivil) {
+        return [
+            'Structural Engineering',
+            'Environmental Engineering',
+            'Construction Engineering & Management'
+        ];
     }
 
     return pgSpecializationMap[degree] || ['Other'];
@@ -272,25 +347,9 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
     const hasLoadedRef = useRef(false);
     const isDirtyRef = useRef(false);
     const [collegesList, setCollegesList] = useState([]);
-    const [engineeringCollegesList, setEngineeringCollegesList] = useState([]);
-    const [artsCollegesList, setArtsCollegesList] = useState([]);
     const [universitiesList, setUniversitiesList] = useState([]);
     const [files, setFiles] = useState({});
     const [dynamicPgDomains, setDynamicPgDomains] = useState([]);
-
-    const getInstitutionsForDegree = (degree) => {
-        const d = (degree || '').trim();
-        const artsDegrees = ['B.Sc.', 'B.A.', 'B.Com.', 'B.C.A.', 'M.Sc.', 'M.A.', 'M.Com.', 'M.C.A.', 'M.B.A.', 'M.Phil'];
-        const engDegrees = ['B.E.', 'B.Tech.', 'M.E.', 'M.Tech.'];
-
-        if (artsDegrees.includes(d)) {
-            return artsCollegesList.length > 0 ? artsCollegesList : collegesList;
-        }
-        if (engDegrees.includes(d)) {
-            return engineeringCollegesList.length > 0 ? engineeringCollegesList : collegesList;
-        }
-        return collegesList;
-    };
 
     const [edu, setEdu] = useState({
         // 10th
@@ -392,14 +451,6 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
         ]).then(([uniData, instData, schoolData]) => {
             if (uniData.success && uniData.data) {
                 setUniversitiesList(uniData.data);
-            }
-            if (instData.success) {
-                if (instData.engineering && instData.engineering.length > 0) {
-                    setEngineeringCollegesList(instData.engineering);
-                }
-                if (instData.arts && instData.arts.length > 0) {
-                    setArtsCollegesList(instData.arts);
-                }
             }
             let combined = [];
             if (instData.success && instData.institutions) {
@@ -755,14 +806,40 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
                                     </div>
                                     <div className="field">
                                         <label>School / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                        <input
-                                            type="text"
-                                            name="tenthInstitution"
-                                            value={edu.tenthInstitution || ''}
-                                            onChange={handleChange}
-                                            placeholder="Enter School / Institution Name"
+                                        <select
+                                            name="tenthInstitutionSelect"
+                                            value={collegesList.includes(edu.tenthInstitution) ? edu.tenthInstitution : (edu.tenthInstitution ? 'Other' : '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEdu(prev => ({
+                                                    ...prev,
+                                                    tenthInstitution: val === 'Other' ? (prev.tenthInstitutionOther || '') : val
+                                                }));
+                                                if (val === 'Other') setActiveOtherField('tenthInstitution');
+                                            }}
                                             required
-                                        />
+                                        >
+                                            <option value="" disabled>Select School / Institution</option>
+                                            {collegesList.map((c, idx) => (
+                                                <option key={idx} value={c}>{c}</option>
+                                            ))}
+                                            <option value="Other">Other (Custom School Name)</option>
+                                        </select>
+                                        {(!collegesList.includes(edu.tenthInstitution) || activeOtherField === 'tenthInstitution') && (
+                                            <input
+                                                type="text"
+                                                name="tenthInstitutionOther"
+                                                value={edu.tenthInstitutionOther || (collegesList.includes(edu.tenthInstitution) ? '' : edu.tenthInstitution)}
+                                                onChange={(e) => {
+                                                    const customVal = e.target.value;
+                                                    setEdu(prev => ({ ...prev, tenthInstitutionOther: customVal, tenthInstitution: customVal }));
+                                                }}
+                                                placeholder="Enter Custom School / Institution Name"
+                                                className="select-other-input"
+                                                style={{ marginTop: '0.5rem' }}
+                                                required
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -848,14 +925,40 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
                                     </div>
                                     <div className="field">
                                         <label>School / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                        <input
-                                            type="text"
-                                            name="twelfthInstitution"
-                                            value={edu.twelfthInstitution || ''}
-                                            onChange={handleChange}
-                                            placeholder="Enter School / Institution Name"
+                                        <select
+                                            name="twelfthInstitutionSelect"
+                                            value={collegesList.includes(edu.twelfthInstitution) ? edu.twelfthInstitution : (edu.twelfthInstitution ? 'Other' : '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEdu(prev => ({
+                                                    ...prev,
+                                                    twelfthInstitution: val === 'Other' ? (prev.twelfthInstitutionOther || '') : val
+                                                }));
+                                                if (val === 'Other') setActiveOtherField('twelfthInstitution');
+                                            }}
                                             required
-                                        />
+                                        >
+                                            <option value="" disabled>Select School / Institution</option>
+                                            {collegesList.map((c, idx) => (
+                                                <option key={idx} value={c}>{c}</option>
+                                            ))}
+                                            <option value="Other">Other (Custom School Name)</option>
+                                        </select>
+                                        {(!collegesList.includes(edu.twelfthInstitution) || activeOtherField === 'twelfthInstitution') && (
+                                            <input
+                                                type="text"
+                                                name="twelfthInstitutionOther"
+                                                value={edu.twelfthInstitutionOther || (collegesList.includes(edu.twelfthInstitution) ? '' : edu.twelfthInstitution)}
+                                                onChange={(e) => {
+                                                    const customVal = e.target.value;
+                                                    setEdu(prev => ({ ...prev, twelfthInstitutionOther: customVal, twelfthInstitution: customVal }));
+                                                }}
+                                                placeholder="Enter Custom School / Institution Name"
+                                                className="select-other-input"
+                                                style={{ marginTop: '0.5rem' }}
+                                                required
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -968,47 +1071,40 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
 
                             <div className="field">
                                 <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                {(() => {
-                                    const ugColleges = getInstitutionsForDegree(edu.ugDegree);
-                                    return (
-                                        <>
-                                            <select
-                                                name="ugInstitutionSelect"
-                                                value={ugColleges.includes(edu.ugInstitution) ? edu.ugInstitution : (edu.ugInstitution ? 'Other' : '')}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setEdu(prev => ({
-                                                        ...prev,
-                                                        ugInstitution: val === 'Other' ? (prev.ugInstitutionOther || '') : val
-                                                    }));
-                                                    if (val === 'Other') setActiveOtherField('ugInstitution');
-                                                }}
-                                                required
-                                            >
-                                                <option value="" disabled>Select College / Institution</option>
-                                                {ugColleges.map((c, idx) => (
-                                                    <option key={idx} value={c}>{c}</option>
-                                                ))}
-                                                <option value="Other">Other (Custom College Name)</option>
-                                            </select>
-                                            {(!ugColleges.includes(edu.ugInstitution) || activeOtherField === 'ugInstitution') && (
-                                                <input
-                                                    type="text"
-                                                    name="ugInstitutionOther"
-                                                    value={edu.ugInstitutionOther || (ugColleges.includes(edu.ugInstitution) ? '' : edu.ugInstitution)}
-                                                    onChange={(e) => {
-                                                        const customVal = e.target.value;
-                                                        setEdu(prev => ({ ...prev, ugInstitutionOther: customVal, ugInstitution: customVal }));
-                                                    }}
-                                                    placeholder="Enter Custom College / Institution Name"
-                                                    className="select-other-input"
-                                                    style={{ marginTop: '0.5rem' }}
-                                                    required
-                                                />
-                                            )}
-                                        </>
-                                    );
-                                })()}
+                                <select
+                                    name="ugInstitutionSelect"
+                                    value={collegesList.includes(edu.ugInstitution) ? edu.ugInstitution : (edu.ugInstitution ? 'Other' : '')}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEdu(prev => ({
+                                            ...prev,
+                                            ugInstitution: val === 'Other' ? (prev.ugInstitutionOther || '') : val
+                                        }));
+                                        if (val === 'Other') setActiveOtherField('ugInstitution');
+                                    }}
+                                    required
+                                >
+                                    <option value="" disabled>Select College / Institution</option>
+                                    {collegesList.map((c, idx) => (
+                                        <option key={idx} value={c}>{c}</option>
+                                    ))}
+                                    <option value="Other">Other (Custom College Name)</option>
+                                </select>
+                                {(!collegesList.includes(edu.ugInstitution) || activeOtherField === 'ugInstitution') && (
+                                    <input
+                                        type="text"
+                                        name="ugInstitutionOther"
+                                        value={edu.ugInstitutionOther || (collegesList.includes(edu.ugInstitution) ? '' : edu.ugInstitution)}
+                                        onChange={(e) => {
+                                            const customVal = e.target.value;
+                                            setEdu(prev => ({ ...prev, ugInstitutionOther: customVal, ugInstitution: customVal }));
+                                        }}
+                                        placeholder="Enter Custom College / Institution Name"
+                                        className="select-other-input"
+                                        style={{ marginTop: '0.5rem' }}
+                                        required
+                                    />
+                                )}
                             </div>
 
                             {['B.E.', 'B.Tech.'].includes(edu.ugDegree) ? (
@@ -1074,7 +1170,7 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
                                         <label>Branch / Specialization <span style={{ color: '#ef4444' }}>*</span></label>
                                         <select name="pgSpecialization" value={edu.pgSpecialization} onChange={handleChange} onClick={() => { if (edu.pgSpecialization === 'Other') setActiveOtherField('pgSpecialization'); }} required>
                                             {Array.from(new Set([
-                                                ...getDepartmentPgSpecializations(edu.pgDegree, profileData?.user?.department || user?.department || '', edu.ugDegree, edu.ugSpecialization),
+                                                ...getDepartmentPgSpecializations(edu.pgDegree, profileData?.user?.department || user?.department || ''),
                                                 ...(dynamicPgDomains.length > 0 ? dynamicPgDomains : []),
                                                 'Other'
                                             ])).map((spec, idx) => (
@@ -1144,47 +1240,40 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
 
                                     <div className="field">
                                         <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                        {(() => {
-                                            const pgColleges = getInstitutionsForDegree(edu.pgDegree);
-                                            return (
-                                                <>
-                                                    <select
-                                                        name="pgInstitutionSelect"
-                                                        value={pgColleges.includes(edu.pgInstitution) ? edu.pgInstitution : (edu.pgInstitution ? 'Other' : '')}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setEdu(prev => ({
-                                                                ...prev,
-                                                                pgInstitution: val === 'Other' ? (prev.pgInstitutionOther || '') : val
-                                                            }));
-                                                            if (val === 'Other') setActiveOtherField('pgInstitution');
-                                                        }}
-                                                        required
-                                                    >
-                                                        <option value="" disabled>Select College / Institution</option>
-                                                        {pgColleges.map((c, idx) => (
-                                                            <option key={idx} value={c}>{c}</option>
-                                                        ))}
-                                                        <option value="Other">Other (Custom College Name)</option>
-                                                    </select>
-                                                    {(!pgColleges.includes(edu.pgInstitution) || activeOtherField === 'pgInstitution') && (
-                                                        <input
-                                                            type="text"
-                                                            name="pgInstitutionOther"
-                                                            value={edu.pgInstitutionOther || (pgColleges.includes(edu.pgInstitution) ? '' : edu.pgInstitution)}
-                                                            onChange={(e) => {
-                                                                const customVal = e.target.value;
-                                                                setEdu(prev => ({ ...prev, pgInstitutionOther: customVal, pgInstitution: customVal }));
-                                                            }}
-                                                            placeholder="Enter Custom College / Institution Name"
-                                                            className="select-other-input"
-                                                            style={{ marginTop: '0.5rem' }}
-                                                            required
-                                                        />
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
+                                        <select
+                                            name="pgInstitutionSelect"
+                                            value={collegesList.includes(edu.pgInstitution) ? edu.pgInstitution : (edu.pgInstitution ? 'Other' : '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEdu(prev => ({
+                                                    ...prev,
+                                                    pgInstitution: val === 'Other' ? (prev.pgInstitutionOther || '') : val
+                                                }));
+                                                if (val === 'Other') setActiveOtherField('pgInstitution');
+                                            }}
+                                            required
+                                        >
+                                            <option value="" disabled>Select College / Institution</option>
+                                            {collegesList.map((c, idx) => (
+                                                <option key={idx} value={c}>{c}</option>
+                                            ))}
+                                            <option value="Other">Other (Custom College Name)</option>
+                                        </select>
+                                        {(!collegesList.includes(edu.pgInstitution) || activeOtherField === 'pgInstitution') && (
+                                            <input
+                                                type="text"
+                                                name="pgInstitutionOther"
+                                                value={edu.pgInstitutionOther || (collegesList.includes(edu.pgInstitution) ? '' : edu.pgInstitution)}
+                                                onChange={(e) => {
+                                                    const customVal = e.target.value;
+                                                    setEdu(prev => ({ ...prev, pgInstitutionOther: customVal, pgInstitution: customVal }));
+                                                }}
+                                                placeholder="Enter Custom College / Institution Name"
+                                                className="select-other-input"
+                                                style={{ marginTop: '0.5rem' }}
+                                                required
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -1258,47 +1347,40 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
 
                                     <div className="field">
                                         <label>College / Institution Name <span style={{ color: '#ef4444' }}>*</span></label>
-                                        {(() => {
-                                            const mphilColleges = getInstitutionsForDegree(edu.mphilDegree || 'M.Phil');
-                                            return (
-                                                <>
-                                                    <select
-                                                        name="mphilInstitutionSelect"
-                                                        value={mphilColleges.includes(edu.mphilInstitution) ? edu.mphilInstitution : (edu.mphilInstitution ? 'Other' : '')}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setEdu(prev => ({
-                                                                ...prev,
-                                                                mphilInstitution: val === 'Other' ? (prev.mphilInstitutionOther || '') : val
-                                                            }));
-                                                            if (val === 'Other') setActiveOtherField('mphilInstitution');
-                                                        }}
-                                                        required
-                                                    >
-                                                        <option value="" disabled>Select College / Institution</option>
-                                                        {mphilColleges.map((c, idx) => (
-                                                            <option key={idx} value={c}>{c}</option>
-                                                        ))}
-                                                        <option value="Other">Other (Custom College Name)</option>
-                                                    </select>
-                                                    {(!mphilColleges.includes(edu.mphilInstitution) || activeOtherField === 'mphilInstitution') && (
-                                                        <input
-                                                            type="text"
-                                                            name="mphilInstitutionOther"
-                                                            value={edu.mphilInstitutionOther || (mphilColleges.includes(edu.mphilInstitution) ? '' : edu.mphilInstitution)}
-                                                            onChange={(e) => {
-                                                                const customVal = e.target.value;
-                                                                setEdu(prev => ({ ...prev, mphilInstitutionOther: customVal, mphilInstitution: customVal }));
-                                                            }}
-                                                            placeholder="Enter Custom College / Institution Name"
-                                                            className="select-other-input"
-                                                            style={{ marginTop: '0.5rem' }}
-                                                            required
-                                                        />
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
+                                        <select
+                                            name="mphilInstitutionSelect"
+                                            value={collegesList.includes(edu.mphilInstitution) ? edu.mphilInstitution : (edu.mphilInstitution ? 'Other' : '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEdu(prev => ({
+                                                    ...prev,
+                                                    mphilInstitution: val === 'Other' ? (prev.mphilInstitutionOther || '') : val
+                                                }));
+                                                if (val === 'Other') setActiveOtherField('mphilInstitution');
+                                            }}
+                                            required
+                                        >
+                                            <option value="" disabled>Select College / Institution</option>
+                                            {collegesList.map((c, idx) => (
+                                                <option key={idx} value={c}>{c}</option>
+                                            ))}
+                                            <option value="Other">Other (Custom College Name)</option>
+                                        </select>
+                                        {(!collegesList.includes(edu.mphilInstitution) || activeOtherField === 'mphilInstitution') && (
+                                            <input
+                                                type="text"
+                                                name="mphilInstitutionOther"
+                                                value={edu.mphilInstitutionOther || (collegesList.includes(edu.mphilInstitution) ? '' : edu.mphilInstitution)}
+                                                onChange={(e) => {
+                                                    const customVal = e.target.value;
+                                                    setEdu(prev => ({ ...prev, mphilInstitutionOther: customVal, mphilInstitution: customVal }));
+                                                }}
+                                                placeholder="Enter Custom College / Institution Name"
+                                                className="select-other-input"
+                                                style={{ marginTop: '0.5rem' }}
+                                                required
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </>
@@ -1409,11 +1491,6 @@ export const EducationTab = ({ profileData, isSubmitted, onSaveSuccess, onNext, 
                                                 <option key={y} value={y}>{y}</option>
                                             ))}
                                         </select>
-                                    </div>
-
-                                    <div className="field">
-                                        <label>No. of Publications During Ph.D</label>
-                                        <input type="number" name="phdPublicationsDuring" value={edu.phdPublicationsDuring} onChange={handleChange} />
                                     </div>
 
                                     <div className="field">

@@ -709,6 +709,14 @@ export const OtherDetailsTab = ({ profileData, isSubmitted, onSaveSuccess, onNex
                             🔒 Application Submitted (Edits Locked)
                         </span>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => setIsPreviewOpen(true)}
+                        className="nav-btn secondary"
+                        style={{ background: '#2563eb', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}
+                    >
+                        <Eye size={18} /> Preview Application
+                    </button>
                     {!isSubmitted ? (
                         <button
                             type="button"

@@ -108,7 +108,7 @@ export function WeightageConfig({ initialCategory }) {
     // Filter Helper
     const getGroupCategory = (key) => {
         if (/tenth|twelfth|ug|pg|mphil/i.test(key)) return 'academics';
-        if (/phd|publication|award|funded/i.test(key)) return 'phd';
+        if (/phd|publication|award|funded|sci|scopus|journal/i.test(key)) return 'phd';
         return 'experience';
     };
 
@@ -271,18 +271,12 @@ export function WeightageConfig({ initialCategory }) {
                     const categoryGroup = getGroupCategory(p.parameter_key || p.candidate_field || '');
 
                     const isMedium = String(p.candidate_field || '').endsWith('.medium');
-                    const isYesNo = ['first_attempt', 'first_class', 'completed', 'funded_projects', 'funded_consultancy', 'funded'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
-                    const isInstitute = ['ug_institute', 'pg_institute', 'mphil_institute', 'institute'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
+                    const isYesNo = ['first_attempt', 'first_class', 'completed'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k)) && !['funded_projects', 'funded_consultancy', 'funded'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
 
-                    const allOptions = isMedium
-                        ? ['Tamil', 'English']
-                        : isYesNo
-                            ? ['Yes', 'No']
-                            : isInstitute
-                                ? ['1-50', '51-100', '101-150', '151-200', '201-300', 'Unranked / Others']
-                                : ['1-50', '51-100', '101-150', '151-200', '201-300', 'Unranked / Others'];
+                    const isCategory = (p.value_type === 'category' || isMedium || isYesNo) && !['funded_projects', 'funded_consultancy', 'sci_journals_count', 'scopus_journals_count', 'ug_institute', 'pg_institute', 'mphil_institute', 'institute'].some(k => String(p.candidate_field || '').includes(k) || String(p.parameter_key || '').includes(k));
 
-                    const isCategory = p.value_type === 'category' && !isInstitute;
+                    const allOptions = isMedium ? ['Tamil', 'English'] : ['Yes', 'No'];
+
                     const usedValues = rangesList.map((r) => r.category_value).filter(Boolean);
                     const remainingOptions = allOptions.filter((opt) => !usedValues.includes(opt));
                     const isAllCategoryAdded = isCategory && remainingOptions.length === 0;

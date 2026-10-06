@@ -47,7 +47,7 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
             status: 'Ongoing',
             proof_doc: '',
             yearly_report_doc: '',
-            releases: [{ release_date: '', amount_received: '', remarks: '' }]
+            releases: []
         };
     }
 
@@ -66,7 +66,7 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
             status: 'Ongoing',
             proof_doc: '',
             yearly_report_doc: '',
-            releases: [{ release_date: '', amount_received: '', remarks: '' }]
+            releases: []
         };
     }
 
@@ -298,6 +298,18 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
     };
 
     const saveJournalModal = () => {
+        if (!journalForm.paper_title?.trim() || !journalForm.journal_name?.trim()) {
+            alert('Paper Title and Journal Name are required.');
+            return;
+        }
+        if (!journalForm.doi?.trim()) {
+            alert('DOI Number / Link is required.');
+            return;
+        }
+        if (!journalForm.publication_date) {
+            alert('Publication Date is required.');
+            return;
+        }
         isDirtyRef.current = true;
         if (editingJournalIndex !== null) {
             setJournals((prev) => {
@@ -386,8 +398,8 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
                                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                                         <Award size={22} color="#5551ff" /> Journal Publications (SCI &amp; Scopus)
                                     </h3>
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.2rem' }}>
-                                        Add details of your published journal papers indexed in SCI or Scopus.
+                                    <p style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: 600, marginTop: '0.2rem' }}>
+                                        (Avoid Scopus indexed conferences)
                                     </p>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -762,10 +774,11 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
             {/* =========================================================
                 MODAL FOR PROJECT PROPOSAL / CONSULTANCY PROPOSAL
             ========================================================= */}
+            {/* Modal for Project Proposal */}
             {isProjectModalOpen && (
                 <RenderProposalModal
                     isProject={true}
-                    title={editingProjectIndex !== null ? "Edit Funded Research Project" : "Add Funded Research Project"}
+                    title={editingProjectIndex !== null ? 'Edit Project Proposal' : 'Add New Project Proposal'}
                     form={projectForm}
                     setForm={setProjectForm}
                     coPiInput={coPiInput}
@@ -774,16 +787,17 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
                     onSave={saveProjectModal}
                     uploadDocument={uploadDocument}
                     uploadingDoc={uploadingDoc}
-                    addReleaseRow={() => addReleaseRow(true)}
-                    removeReleaseRow={(rIdx) => removeReleaseRow(true, rIdx)}
-                    updateReleaseRow={(rIdx, field, val) => updateReleaseRow(true, rIdx, field, val)}
+                    addReleaseRow={(isProj) => addReleaseRow(isProj)}
+                    removeReleaseRow={(isProj, idx) => removeReleaseRow(isProj, idx)}
+                    updateReleaseRow={(isProj, idx, field, val) => updateReleaseRow(isProj, idx, field, val)}
                 />
             )}
 
+            {/* Modal for Consultancy Proposal */}
             {isConsultancyModalOpen && (
                 <RenderProposalModal
                     isProject={false}
-                    title={editingConsultancyIndex !== null ? "Edit Consultancy Assignment" : "Add New Consultancy Assignment"}
+                    title={editingConsultancyIndex !== null ? 'Edit Consultancy Proposal' : 'Add New Consultancy Proposal'}
                     form={consultancyForm}
                     setForm={setConsultancyForm}
                     coPiInput={coPiInput}
@@ -792,9 +806,9 @@ export const ResearchConsultancyTab = ({ profileData, isSubmitted, sectionConfig
                     onSave={saveConsultancyModal}
                     uploadDocument={uploadDocument}
                     uploadingDoc={uploadingDoc}
-                    addReleaseRow={() => addReleaseRow(false)}
-                    removeReleaseRow={(rIdx) => removeReleaseRow(false, rIdx)}
-                    updateReleaseRow={(rIdx, field, val) => updateReleaseRow(false, rIdx, field, val)}
+                    addReleaseRow={(isProj) => addReleaseRow(isProj)}
+                    removeReleaseRow={(isProj, idx) => removeReleaseRow(isProj, idx)}
+                    updateReleaseRow={(isProj, idx, field, val) => updateReleaseRow(isProj, idx, field, val)}
                 />
             )}
 
@@ -824,6 +838,47 @@ function RenderJournalModal({
     uploadDocument,
     uploadingDoc
 }) {
+    const [errors, setErrors] = useState({});
+    const [flashMessage, setFlashMessage] = useState('');
+
+    const handleValidateAndSave = () => {
+        const errs = {};
+        const missing = [];
+
+        if (!form.paper_title?.trim()) {
+            errs.paper_title = true;
+            missing.push('Paper Title');
+        }
+        if (!form.journal_name?.trim()) {
+            errs.journal_name = true;
+            missing.push('Journal Name');
+        }
+        if (!form.doi?.trim()) {
+            errs.doi = true;
+            missing.push('DOI Number / Link');
+        }
+        if (!form.publication_date) {
+            errs.publication_date = true;
+            missing.push('Publication Date');
+        }
+
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            setFlashMessage(`Please fill in all mandatory fields highlighted in red (${missing.join(', ')}).`);
+            const firstKey = Object.keys(errs)[0];
+            const el = document.getElementById(`journal-${firstKey}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus();
+            }
+            return;
+        }
+
+        setErrors({});
+        setFlashMessage('');
+        onSave();
+    };
+
     return (
         <div style={{
             position: 'fixed',
@@ -908,30 +963,54 @@ function RenderJournalModal({
 
                     {/* Paper Title */}
                     <div>
-                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#334155', marginBottom: '0.3rem' }}>
+                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.paper_title ? '#ef4444' : '#334155', marginBottom: '0.3rem' }}>
                             Paper Title <span style={{ color: '#ef4444' }}>*</span>
                         </label>
                         <input
+                            id="journal-paper_title"
                             type="text"
                             value={form.paper_title || ''}
-                            onChange={(e) => setForm(prev => ({ ...prev, paper_title: e.target.value }))}
+                            onChange={(e) => {
+                                setForm(prev => ({ ...prev, paper_title: e.target.value }));
+                                if (errors.paper_title) setErrors(prev => ({ ...prev, paper_title: false }));
+                            }}
                             placeholder="Enter the title of published paper"
-                            style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                            style={{
+                                width: '100%',
+                                padding: '0.65rem 0.85rem',
+                                borderRadius: '8px',
+                                border: errors.paper_title ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                background: errors.paper_title ? '#fef2f2' : '#ffffff',
+                                fontSize: '0.88rem',
+                                outline: 'none'
+                            }}
                         />
                     </div>
 
                     {/* Journal Name & Publisher */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#334155', marginBottom: '0.3rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.journal_name ? '#ef4444' : '#334155', marginBottom: '0.3rem' }}>
                                 Journal Name <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="journal-journal_name"
                                 type="text"
                                 value={form.journal_name || ''}
-                                onChange={(e) => setForm(prev => ({ ...prev, journal_name: e.target.value }))}
+                                onChange={(e) => {
+                                    setForm(prev => ({ ...prev, journal_name: e.target.value }));
+                                    if (errors.journal_name) setErrors(prev => ({ ...prev, journal_name: false }));
+                                }}
                                 placeholder="e.g. IEEE Transactions on AI"
-                                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.65rem 0.85rem',
+                                    borderRadius: '8px',
+                                    border: errors.journal_name ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.journal_name ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.88rem',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                         <div>
@@ -963,15 +1042,27 @@ function RenderJournalModal({
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#334155', marginBottom: '0.3rem' }}>
-                                DOI Number / Link
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.doi ? '#ef4444' : '#334155', marginBottom: '0.3rem' }}>
+                                DOI Number / Link <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="journal-doi"
                                 type="text"
                                 value={form.doi || ''}
-                                onChange={(e) => setForm(prev => ({ ...prev, doi: e.target.value }))}
+                                onChange={(e) => {
+                                    setForm(prev => ({ ...prev, doi: e.target.value }));
+                                    if (errors.doi) setErrors(prev => ({ ...prev, doi: false }));
+                                }}
                                 placeholder="10.1016/j.artint.2023.103982"
-                                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.65rem 0.85rem',
+                                    borderRadius: '8px',
+                                    border: errors.doi ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.doi ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.88rem',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                     </div>
@@ -979,14 +1070,26 @@ function RenderJournalModal({
                     {/* Publication Date & Impact Factor */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#334155', marginBottom: '0.3rem' }}>
-                                Publication Date
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.publication_date ? '#ef4444' : '#334155', marginBottom: '0.3rem' }}>
+                                Publication Date <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="journal-publication_date"
                                 type="date"
                                 value={form.publication_date || ''}
-                                onChange={(e) => setForm(prev => ({ ...prev, publication_date: e.target.value }))}
-                                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                                onChange={(e) => {
+                                    setForm(prev => ({ ...prev, publication_date: e.target.value }));
+                                    if (errors.publication_date) setErrors(prev => ({ ...prev, publication_date: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.65rem 0.85rem',
+                                    borderRadius: '8px',
+                                    border: errors.publication_date ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.publication_date ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.88rem',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                         <div>
@@ -1029,16 +1132,35 @@ function RenderJournalModal({
                             </span>
                         </div>
                     </div>
-                </div>
 
-                {/* Modal Footer */}
-                <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: '#f8fafc', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                    <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s ease' }}>
-                        Cancel
-                    </button>
-                    <button type="button" onClick={onSave} style={{ padding: '0.65rem 1.5rem', borderRadius: '10px', background: '#2563eb', color: '#ffffff', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)', transition: 'all 0.2s ease' }}>
-                        Save Publication
-                    </button>
+                    {/* Flash Error Banner */}
+                    {flashMessage && (
+                        <div style={{
+                            padding: '0.85rem 1.15rem',
+                            borderRadius: '10px',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            color: '#dc2626',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.1)'
+                        }}>
+                            <span>⚠️ {flashMessage}</span>
+                        </div>
+                    )}
+
+                    {/* Modal Footer (Inside Scroll Area) */}
+                    <div style={{ paddingTop: '1.25rem', marginTop: '1.25rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s ease' }}>
+                            Cancel
+                        </button>
+                        <button type="button" onClick={handleValidateAndSave} style={{ padding: '0.65rem 1.5rem', borderRadius: '10px', background: '#2563eb', color: '#ffffff', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)', transition: 'all 0.2s ease' }}>
+                            Save Publication
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1061,11 +1183,65 @@ function RenderProposalModal({
     removeReleaseRow,
     updateReleaseRow
 }) {
+    const [errors, setErrors] = useState({});
+    const [flashMessage, setFlashMessage] = useState('');
+
     const handleAddCoPi = () => {
         if (!coPiInput.trim()) return;
         const updated = form.co_pi_names ? `${form.co_pi_names}, ${coPiInput.trim()}` : coPiInput.trim();
         setForm((prev) => ({ ...prev, co_pi_names: updated }));
         setCoPiInput('');
+    };
+
+    const handleValidateAndSave = () => {
+        const errs = {};
+        const missing = [];
+
+        if (!form.pi_name?.trim()) {
+            errs.pi_name = true;
+            missing.push('PI Name');
+        }
+        const titleVal = isProject ? form.project_title : form.consultancy_title;
+        if (!titleVal?.trim()) {
+            errs.title = true;
+            missing.push(isProject ? 'Project Title' : 'Consultancy Title');
+        }
+        if (!form.industry?.trim()) {
+            errs.industry = true;
+            missing.push('Industry');
+        }
+        if (!form.organization_name?.trim()) {
+            errs.organization_name = true;
+            missing.push('Organization Name');
+        }
+        if (!form.from_date) {
+            errs.from_date = true;
+            missing.push('From Date');
+        }
+        if (!form.to_date) {
+            errs.to_date = true;
+            missing.push('To Date');
+        }
+        if (form.amount === '' || form.amount === null || form.amount === undefined) {
+            errs.amount = true;
+            missing.push(isProject ? 'Amount Sanctioned' : 'Total Amount');
+        }
+
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            setFlashMessage(`Please fill in all mandatory fields highlighted in red (${missing.join(', ')}).`);
+            const firstKey = Object.keys(errs)[0];
+            const el = document.getElementById(`proposal-${firstKey}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus();
+            }
+            return;
+        }
+
+        setErrors({});
+        setFlashMessage('');
+        onSave();
     };
 
     return (
@@ -1113,14 +1289,26 @@ function RenderProposalModal({
                 <div style={{ padding: '1.75rem', overflowY: 'auto', flex: 1 }}>
                     {/* PI Name */}
                     <div style={{ marginBottom: '1.25rem' }}>
-                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.pi_name ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                             PI Name <span style={{ color: '#ef4444' }}>*</span>
                         </label>
                         <input
+                            id="proposal-pi_name"
                             type="text"
                             value={form.pi_name}
-                            onChange={(e) => setForm({ ...form, pi_name: e.target.value })}
-                            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', fontSize: '0.92rem', outline: 'none' }}
+                            onChange={(e) => {
+                                setForm({ ...form, pi_name: e.target.value });
+                                if (errors.pi_name) setErrors(prev => ({ ...prev, pi_name: false }));
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                border: errors.pi_name ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                background: errors.pi_name ? '#fef2f2' : '#f8fafc',
+                                fontSize: '0.92rem',
+                                outline: 'none'
+                            }}
                             placeholder="Enter PI Name"
                         />
                     </div>
@@ -1157,26 +1345,50 @@ function RenderProposalModal({
                     {/* Project Title & Industry */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.title ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 Project Title <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="proposal-title"
                                 type="text"
                                 value={isProject ? form.project_title : form.consultancy_title}
-                                onChange={(e) => setForm({ ...form, [isProject ? 'project_title' : 'consultancy_title']: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                onChange={(e) => {
+                                    setForm({ ...form, [isProject ? 'project_title' : 'consultancy_title']: e.target.value });
+                                    if (errors.title) setErrors(prev => ({ ...prev, title: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.title ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.title ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                                 placeholder="Enter title"
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.industry ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 Industry <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="proposal-industry"
                                 type="text"
                                 value={form.industry}
-                                onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                onChange={(e) => {
+                                    setForm({ ...form, industry: e.target.value });
+                                    if (errors.industry) setErrors(prev => ({ ...prev, industry: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.industry ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.industry ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                                 placeholder="Enter industry / domain"
                             />
                         </div>
@@ -1185,26 +1397,50 @@ function RenderProposalModal({
                     {/* Organization Name & From Date */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.organization_name ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 Organization Name <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="proposal-organization_name"
                                 type="text"
                                 value={form.organization_name}
-                                onChange={(e) => setForm({ ...form, organization_name: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                onChange={(e) => {
+                                    setForm({ ...form, organization_name: e.target.value });
+                                    if (errors.organization_name) setErrors(prev => ({ ...prev, organization_name: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.organization_name ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.organization_name ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                                 placeholder="Enter Organization / Client Name"
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.from_date ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 From Date <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="proposal-from_date"
                                 type="date"
                                 value={form.from_date}
-                                onChange={(e) => setForm({ ...form, from_date: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                onChange={(e) => {
+                                    setForm({ ...form, from_date: e.target.value });
+                                    if (errors.from_date) setErrors(prev => ({ ...prev, from_date: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.from_date ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.from_date ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                     </div>
@@ -1212,21 +1448,34 @@ function RenderProposalModal({
                     {/* To Date & Total Consultancy Amount */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.to_date ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 To Date <span style={{ color: '#ef4444' }}>*</span>
                             </label>
                             <input
+                                id="proposal-to_date"
                                 type="date"
                                 value={form.to_date}
-                                onChange={(e) => setForm({ ...form, to_date: e.target.value })}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                onChange={(e) => {
+                                    setForm({ ...form, to_date: e.target.value });
+                                    if (errors.to_date) setErrors(prev => ({ ...prev, to_date: false }));
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.to_date ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.to_date ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: errors.amount ? '#ef4444' : '#1e293b', marginBottom: '0.4rem' }}>
                                 {isProject ? 'Amount Sanctioned (₹) *' : 'Total Consultancy Amount (₹) *'}
                             </label>
                             <input
+                                id="proposal-amount"
                                 type="number"
                                 min="0"
                                 step="any"
@@ -1234,9 +1483,20 @@ function RenderProposalModal({
                                 value={form.amount}
                                 onChange={(e) => {
                                     const val = e.target.value;
-                                    if (val === '' || parseFloat(val) >= 0) setForm({ ...form, amount: val });
+                                    if (val === '' || parseFloat(val) >= 0) {
+                                        setForm({ ...form, amount: val });
+                                        if (errors.amount) setErrors(prev => ({ ...prev, amount: false }));
+                                    }
                                 }}
-                                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '10px',
+                                    border: errors.amount ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                                    background: errors.amount ? '#fef2f2' : '#ffffff',
+                                    fontSize: '0.92rem',
+                                    outline: 'none'
+                                }}
                                 placeholder="e.g. 117000"
                             />
                         </div>
@@ -1255,7 +1515,7 @@ function RenderProposalModal({
                             </div>
                             <button
                                 type="button"
-                                onClick={() => addReleaseRow()}
+                                onClick={() => addReleaseRow(isProject)}
                                 style={{
                                     padding: '0.45rem 0.9rem',
                                     borderRadius: '8px',
@@ -1298,7 +1558,7 @@ function RenderProposalModal({
                                                     <input
                                                         type="date"
                                                         value={rel.release_date || ''}
-                                                        onChange={(e) => updateReleaseRow(rIdx, 'release_date', e.target.value)}
+                                                        onChange={(e) => updateReleaseRow(isProject, rIdx, 'release_date', e.target.value)}
                                                         style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                                     />
                                                 </td>
@@ -1311,7 +1571,7 @@ function RenderProposalModal({
                                                         value={rel.amount_received || ''}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
-                                                            if (val === '' || parseFloat(val) >= 0) updateReleaseRow(rIdx, 'amount_received', val);
+                                                            if (val === '' || parseFloat(val) >= 0) updateReleaseRow(isProject, rIdx, 'amount_received', val);
                                                         }}
                                                         placeholder="Amount"
                                                         style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
@@ -1321,13 +1581,13 @@ function RenderProposalModal({
                                                     <input
                                                         type="text"
                                                         value={rel.remarks || ''}
-                                                        onChange={(e) => updateReleaseRow(rIdx, 'remarks', e.target.value)}
+                                                        onChange={(e) => updateReleaseRow(isProject, rIdx, 'remarks', e.target.value)}
                                                         placeholder="Remarks"
                                                         style={{ width: '100%', padding: '0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                                    <button type="button" onClick={() => removeReleaseRow(rIdx)} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '4px', padding: '0.3rem', cursor: 'pointer' }}>
+                                                    <button type="button" onClick={() => removeReleaseRow(isProject, rIdx)} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '4px', padding: '0.3rem', cursor: 'pointer' }}>
                                                         <Trash2 size={14} />
                                                     </button>
                                                 </td>
@@ -1402,16 +1662,36 @@ function RenderProposalModal({
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Modal Footer */}
-                <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', background: '#f8fafc' }}>
-                    <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s ease' }}>
-                        Cancel
-                    </button>
-                    <button type="button" onClick={onSave} style={{ padding: '0.65rem 1.5rem', borderRadius: '10px', background: '#2563eb', color: '#ffffff', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)', transition: 'all 0.2s ease' }}>
-                        Save
-                    </button>
+                    {/* Flash Error Banner */}
+                    {flashMessage && (
+                        <div style={{
+                            margin: '1.25rem 0 0.25rem 0',
+                            padding: '0.85rem 1.15rem',
+                            borderRadius: '10px',
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            color: '#dc2626',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.1)'
+                        }}>
+                            <span>⚠️ {flashMessage}</span>
+                        </div>
+                    )}
+
+                    {/* Modal Footer (Inside Scroll Area) */}
+                    <div style={{ paddingTop: '1.5rem', marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s ease' }}>
+                            Cancel
+                        </button>
+                        <button type="button" onClick={handleValidateAndSave} style={{ padding: '0.65rem 1.5rem', borderRadius: '10px', background: '#2563eb', color: '#ffffff', fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)', transition: 'all 0.2s ease' }}>
+                            Save
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

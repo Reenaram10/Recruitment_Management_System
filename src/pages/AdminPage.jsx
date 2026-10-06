@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Banner } from '../components/Banner';
-import { Search, Eye, Plus, Trash2, CheckCircle, XCircle, Download, X, Settings, Users, Sliders, Edit2, Check, ToggleLeft, ToggleRight, ShieldCheck, LogOut, BookOpen, ChevronLeft, ChevronRight, Menu, Upload, Award, RefreshCw } from 'lucide-react';
+import { Search, Eye, Plus, Trash2, CheckCircle, XCircle, Download, X, Settings, Users, Sliders, Edit2, Check, ToggleLeft, ToggleRight, ShieldCheck, LogOut, BookOpen, ChevronLeft, ChevronRight, Menu, Upload, Award, RefreshCw, Unlock } from 'lucide-react';
 import { WeightageConfig } from '../components/WeightageConfig';
 import { PrintableApplicationForm } from '../components/PrintableApplicationForm';
 
@@ -443,10 +443,40 @@ export const AdminPage = () => {
     const [deptsList, setDeptsList] = useState([]);
     const [postsList, setPostsList] = useState([]);
     const [postDeptFilter, setPostDeptFilter] = useState('');
-    // Candidate Modal
+    // Candidate Modal & Release Lock State
     const [selectedApp, setSelectedApp] = useState(null);
     const [selectedAppScore, setSelectedAppScore] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
+    const [unlockConfirmCandidate, setUnlockConfirmCandidate] = useState(null);
+    const [isUnlocking, setIsUnlocking] = useState(false);
+
+    const handleUnlockApplication = async (email) => {
+        if (!email) return;
+        setIsUnlocking(true);
+        try {
+            const res = await fetch('/api/admin/applications/unlock', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setBanner({ type: 'success', message: data.message || `Application lock released for ${email}.` });
+                setUnlockConfirmCandidate(null);
+                if (selectedApp && (selectedApp.email === email || selectedApp.personal?.user_email === email)) {
+                    setSelectedApp(null);
+                }
+                fetchApplications();
+            } else {
+                setBanner({ type: 'error', message: data.message || 'Failed to release application lock.' });
+            }
+        } catch (err) {
+            console.error('Error unlocking application:', err);
+            setBanner({ type: 'error', message: 'Failed to release application lock.' });
+        } finally {
+            setIsUnlocking(false);
+        }
+    };
 
     // Dropdown Management State
     const [dropdownOptions, setDropdownOptions] = useState([]);
@@ -1612,7 +1642,7 @@ export const AdminPage = () => {
                                                     <td style={{ color: 'var(--color-text-main)' }}>{app.phone || 'N/A'}</td>
                                                     <td style={{ color: 'var(--color-text-main)' }}>{app.registered_at ? app.registered_at.substring(0, 10) : 'N/A'}</td>
                                                     <td>
-                                                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openCandidateModal(app.email)}
@@ -1620,6 +1650,15 @@ export const AdminPage = () => {
                                                                 style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                                                             >
                                                                 <Eye size={14} /> View Details
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setUnlockConfirmCandidate({ email: app.email, name: app.full_name })}
+                                                                className="nav-btn"
+                                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(234, 179, 8, 0.1)', color: '#ca8a04', border: '1px solid #fde047', fontWeight: 600 }}
+                                                                title="Release Lock to allow candidate to edit application"
+                                                            >
+                                                                <Unlock size={14} /> Release Lock
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -2183,6 +2222,15 @@ export const AdminPage = () => {
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
                                     <button
                                         type="button"
+                                        onClick={() => setUnlockConfirmCandidate({ email: selectedApp.email || selectedApp.personal?.user_email, name: selectedApp.personal?.full_name })}
+                                        className="nav-btn"
+                                        style={{ padding: '0.55rem 1rem', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(234, 179, 8, 0.1)', color: '#ca8a04', border: '1px solid #fde047', fontWeight: 700 }}
+                                        title="Release Lock to allow candidate to edit application"
+                                    >
+                                        <Unlock size={16} /> Release Lock
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => handleExportIndividualCSV(selectedApp.email || selectedApp.personal?.user_email, selectedApp.personal?.full_name)}
                                         className="nav-btn"
                                         style={{ padding: '0.55rem 1rem', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid #7dd3fc', fontWeight: 700 }}
@@ -2211,6 +2259,49 @@ export const AdminPage = () => {
                     </div>
                 )
             }
+
+            {/* MODAL: Confirm Release Lock */}
+            {unlockConfirmCandidate && (
+                <div className="modal-backdrop">
+                    <div className="modal-card" style={{ maxWidth: '480px' }}>
+                        <div className="modal-header" style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a' }}>
+                            <h2 style={{ color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                                <Unlock size={20} color="#d97706" /> Confirm Release Lock
+                            </h2>
+                            <button type="button" className="modal-close" onClick={() => setUnlockConfirmCandidate(null)}>
+                                <X size={20} color="#92400e" />
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '1.5rem' }}>
+                            <p style={{ fontSize: '0.92rem', color: '#1e293b', marginBottom: '1rem', lineHeight: '1.5' }}>
+                                Are you sure you want to release the application lock for candidate <strong>{unlockConfirmCandidate.name || unlockConfirmCandidate.email}</strong> (<code>{unlockConfirmCandidate.email}</code>)?
+                            </p>
+                            <div style={{ background: '#fffbebfb', border: '1px solid #fcd34d', padding: '0.85rem', borderRadius: '8px', fontSize: '0.84rem', color: '#78350f', marginBottom: '1.25rem' }}>
+                                ℹ️ Releasing the lock will allow the candidate to log into their staff portal, edit their profile details, and resubmit their application.
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setUnlockConfirmCandidate(null)}
+                                    className="nav-btn"
+                                    style={{ padding: '0.5rem 1rem', fontSize: '0.86rem' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleUnlockApplication(unlockConfirmCandidate.email)}
+                                    disabled={isUnlocking}
+                                    className="nav-btn"
+                                    style={{ padding: '0.5rem 1.1rem', fontSize: '0.86rem', background: '#d97706', color: '#ffffff', fontWeight: 700, border: 'none' }}
+                                >
+                                    {isUnlocking ? 'Unlocking...' : 'Unlock Application'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* MODAL: Add Dropdown Option */}
             {

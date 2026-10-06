@@ -213,7 +213,7 @@ export const CertificationsTab = ({ profileData, isSubmitted, onSaveSuccess, onN
                                             <th style={{ padding: '0.9rem 0.75rem' }}>CATEGORY</th>
                                             <th style={{ padding: '0.9rem 0.75rem' }}>COURSE / CERTIFICATION TITLE</th>
                                             <th style={{ padding: '0.9rem 0.75rem' }}>ISSUING ORGANIZATION</th>
-                                            <th style={{ padding: '0.9rem 0.75rem' }}>SCORE</th>
+                                            <th style={{ padding: '0.9rem 0.75rem' }}>SCORE / GRADE</th>
                                             <th style={{ padding: '0.9rem 0.75rem', textAlign: 'center' }}>YEAR</th>
                                             <th style={{ padding: '0.9rem 0.75rem', textAlign: 'center' }}>PROOF</th>
                                             {!isSubmitted && <th style={{ padding: '0.9rem 0.75rem', textAlign: 'center' }}>ACTIONS</th>}
@@ -391,17 +391,12 @@ export const CertificationsTab = ({ profileData, isSubmitted, onSaveSuccess, onN
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: '#1e293b', marginBottom: '0.4rem' }}>
-                                            Score
+                                            Score / Percentage / Grade
                                         </label>
                                         <input
                                             type="text"
                                             value={certForm.score}
-                                            onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
-                                            onChange={(e) => {
-                                                let val = e.target.value;
-                                                if (val.startsWith('-')) val = val.replace(/-/g, '');
-                                                setCertForm({ ...certForm, score: val });
-                                            }}
+                                            onChange={(e) => setCertForm({ ...certForm, score: e.target.value })}
                                             placeholder="e.g. 85% or Elite / Gold"
                                             style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.92rem', outline: 'none' }}
                                         />

@@ -197,7 +197,10 @@ try {
     if (fs.existsSync(artsCsvPath)) {
         const lines = fs.readFileSync(artsCsvPath, 'utf8').split(/\r?\n/);
         loadedArtsScienceColleges = lines
-            .map(l => l.trim())
+            .map(l => {
+                const firstCol = l.split(',')[0];
+                return firstCol ? firstCol.trim() : '';
+            })
             .filter(l => l && l !== 'College Name');
     }
 } catch (err) {
@@ -1450,13 +1453,13 @@ let memoryScoringParameters = [
     { id: 17, parameter_key: 'phd_completion', parameter_name: 'Ph.D. Completion', candidate_field: 'phd.completed', value_type: 'category', max_weightage: 10, is_active: 1, ranges: [{ id: 117, range_type: 'category', category_value: 'Yes', assigned_score: 10 }] },
     { id: 18, parameter_key: 'net', parameter_name: 'NET Qualified', candidate_field: 'ug.net_slet_score', value_type: 'number', max_weightage: 3, is_active: 0, ranges: [] },
     { id: 19, parameter_key: 'slet', parameter_name: 'SLET Qualified', candidate_field: 'ug.net_slet_score', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
-    { id: 20, parameter_key: 'gate_score', parameter_name: 'GATE Score', candidate_field: 'ug.gate_score', value_type: 'number', max_weightage: 3, is_active: 0, ranges: [] },
     { id: 21, parameter_key: 'experience', parameter_name: 'Teaching Experience (Years)', candidate_field: 'experience.years', value_type: 'number', max_weightage: 5, is_active: 1, ranges: [{ id: 118, range_type: 'number', min_value: 5, max_value: 50, assigned_score: 5 }, { id: 119, range_type: 'number', min_value: 1, max_value: 4, assigned_score: 3 }] },
-    { id: 22, parameter_key: 'publications_during_phd', parameter_name: 'Publications During Ph.D.', candidate_field: 'phd.publications_during', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
     { id: 23, parameter_key: 'awards', parameter_name: 'Awards & Honors', candidate_field: 'phd.awards', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
     { id: 24, parameter_key: 'nptel_course', parameter_name: 'NPTEL / SWAYAM Certifications Count', candidate_field: 'certifications.nptel_count', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [] },
-    { id: 25, parameter_key: 'funded_projects', parameter_name: 'Funded Projects', candidate_field: 'phd.funded_projects', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] },
-    { id: 26, parameter_key: 'funded_consultancy', parameter_name: 'Funded Consultancy', candidate_field: 'phd.funded_consultancy', value_type: 'category', max_weightage: 1, is_active: 0, ranges: [] }
+    { id: 25, parameter_key: 'funded_projects', parameter_name: 'Funded Projects Count Range', candidate_field: 'projects.funded_projects_count', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [{ id: 1251, range_type: 'number', min_value: 1, max_value: 2, assigned_score: 1 }, { id: 1252, range_type: 'number', min_value: 3, max_value: 5, assigned_score: 2 }, { id: 1253, range_type: 'number', min_value: 6, max_value: 50, assigned_score: 3 }] },
+    { id: 26, parameter_key: 'funded_consultancy', parameter_name: 'Funded Consultancy Count Range', candidate_field: 'projects.funded_consultancy_count', value_type: 'number', max_weightage: 2, is_active: 0, ranges: [{ id: 1261, range_type: 'number', min_value: 1, max_value: 2, assigned_score: 1 }, { id: 1262, range_type: 'number', min_value: 3, max_value: 5, assigned_score: 2 }, { id: 1263, range_type: 'number', min_value: 6, max_value: 50, assigned_score: 3 }] },
+    { id: 27, parameter_key: 'sci_journals_count', parameter_name: 'SCI Journal Publications Count', candidate_field: 'journals.sci_count', value_type: 'number', max_weightage: 5, is_active: 0, ranges: [{ id: 1271, range_type: 'number', min_value: 1, max_value: 2, assigned_score: 2 }, { id: 1272, range_type: 'number', min_value: 3, max_value: 5, assigned_score: 3 }, { id: 1273, range_type: 'number', min_value: 6, max_value: 50, assigned_score: 5 }] },
+    { id: 28, parameter_key: 'scopus_journals_count', parameter_name: 'Scopus Journal Publications Count', candidate_field: 'journals.scopus_count', value_type: 'number', max_weightage: 3, is_active: 0, ranges: [{ id: 1281, range_type: 'number', min_value: 1, max_value: 2, assigned_score: 1 }, { id: 1282, range_type: 'number', min_value: 3, max_value: 5, assigned_score: 2 }, { id: 1283, range_type: 'number', min_value: 6, max_value: 50, assigned_score: 3 }] }
 ];
 async function resolveInstituteRankNumber(collegeName) {
     if (!collegeName || typeof collegeName !== 'string' || !collegeName.trim()) {
@@ -1524,6 +1527,43 @@ async function candidateScoringValues(email) {
 
     const isSwayamOrNptel = (c) => /(swayam|nptel)/i.test(c.category || '') || /(swayam|nptel)/i.test(c.organization || '') || /(swayam|nptel)/i.test(c.title || '');
 
+    let sciCount = 0;
+    let scopusCount = 0;
+    let fundedProjectsCount = 0;
+    let fundedConsultancyCount = 0;
+
+    if (isDbConnected() && getPool()) {
+        try {
+            const [journals] = await getPool().query('SELECT txt_Journal_Type FROM tbl_User_Journal_Publications WHERE txt_User_Email = ?', [email]);
+            (journals || []).forEach(j => {
+                const type = String(j.txt_Journal_Type || '').trim().toUpperCase();
+                if (type.includes('SCI') && !type.includes('SCOPUS')) sciCount++;
+                else if (type.includes('SCOPUS')) scopusCount++;
+                else if (type === 'SCI') sciCount++;
+            });
+            const [pRows] = await getPool().query('SELECT COUNT(*) as cnt FROM tbl_User_Research_Projects WHERE txt_User_Email = ?', [email]);
+            const dbPCount = pRows[0]?.cnt || 0;
+            fundedProjectsCount = Math.max(dbPCount, Number(phd.no_of_funded_projects || 0));
+
+            const [cRows] = await getPool().query('SELECT COUNT(*) as cnt FROM tbl_User_Funded_Consultancy WHERE txt_User_Email = ?', [email]);
+            const dbCCount = cRows[0]?.cnt || 0;
+            fundedConsultancyCount = Math.max(dbCCount, Number(phd.no_of_funded_consultancy || 0));
+        } catch (e) { }
+    } else {
+        const userJournals = memoryJournalPublications.filter(j => j.user_email === email);
+        userJournals.forEach(j => {
+            const type = String(j.journal_type || j.txt_Journal_Type || '').trim().toUpperCase();
+            if (type.includes('SCI') && !type.includes('SCOPUS')) sciCount++;
+            else if (type.includes('SCOPUS')) scopusCount++;
+            else if (type === 'SCI') sciCount++;
+        });
+        const memPCount = memoryResearchProjects.filter(p => p.user_email === email).length;
+        fundedProjectsCount = Math.max(memPCount, Number(phd.no_of_funded_projects || 0));
+
+        const memCCount = memoryFundedConsultancy.filter(c => c.user_email === email).length;
+        fundedConsultancyCount = Math.max(memCCount, Number(phd.no_of_funded_consultancy || 0));
+    }
+
     return {
         'tenth.score': field('tenth', 'percentage'),
         'tenth.medium': field('tenth', 'medium'),
@@ -1547,10 +1587,14 @@ async function candidateScoringValues(email) {
         'phd.completed': phd.status === 'Completed' ? 'Yes' : 'No',
         'phd.publications_during': phd.no_of_publications_during_phd,
         'phd.awards': phd.no_of_awards,
-        'phd.funded_projects': (phd.no_of_funded_projects && Number(phd.no_of_funded_projects) > 0) ? 'Yes' : 'No',
-        'phd.funded_consultancy': (phd.no_of_funded_consultancy && Number(phd.no_of_funded_consultancy) > 0) ? 'Yes' : 'No',
+        'phd.funded_projects': fundedProjectsCount > 0 ? 'Yes' : 'No',
+        'phd.funded_consultancy': fundedConsultancyCount > 0 ? 'Yes' : 'No',
+        'projects.funded_projects_count': fundedProjectsCount,
+        'projects.funded_consultancy_count': fundedConsultancyCount,
         'experience.years': months / 12,
-        'certifications.nptel_count': certifications.filter(isSwayamOrNptel).length
+        'certifications.nptel_count': certifications.filter(isSwayamOrNptel).length,
+        'journals.sci_count': sciCount,
+        'journals.scopus_count': scopusCount
     };
 }
 
@@ -1713,18 +1757,45 @@ app.get('/api/scoring/parameters', async (req, res) => {
     try {
         if (isDbConnected() && getPool()) {
             try {
+                await getPool().query("DELETE FROM scoring_parameters WHERE parameter_key IN ('publications_during_phd', 'gate_score')");
                 await getPool().query(`
                     UPDATE scoring_parameters 
                     SET value_type = 'number' 
                     WHERE candidate_field IN ('ug.institute', 'pg.institute', 'mphil.institute') OR parameter_key IN ('ug_institute', 'pg_institute', 'mphil_institute')
                 `);
+                await getPool().query(`
+                    UPDATE scoring_parameters 
+                    SET value_type = 'number', candidate_field = 'projects.funded_projects_count', parameter_name = 'Funded Projects Count Range' 
+                    WHERE parameter_key = 'funded_projects'
+                `);
+                await getPool().query(`
+                    UPDATE scoring_parameters 
+                    SET value_type = 'number', candidate_field = 'projects.funded_consultancy_count', parameter_name = 'Funded Consultancy Count Range' 
+                    WHERE parameter_key = 'funded_consultancy'
+                `);
+                const [existingSci] = await getPool().query("SELECT id FROM scoring_parameters WHERE parameter_key = 'sci_journals_count'");
+                if (existingSci.length === 0) {
+                    const [resSci] = await getPool().query(
+                        "INSERT INTO scoring_parameters (parameter_key, parameter_name, candidate_field, value_type, max_weightage, is_active, display_order) VALUES ('sci_journals_count', 'SCI Journal Publications Count', 'journals.sci_count', 'number', 5, 0, 27)"
+                    );
+                    const paramId = resSci.insertId;
+                    await getPool().query("INSERT INTO scoring_ranges (parameter_id, range_type, min_value, max_value, assigned_score, display_order) VALUES (?, 'number', 1, 2, 2, 1), (?, 'number', 3, 5, 3, 2), (?, 'number', 6, 50, 5, 3)", [paramId, paramId, paramId]);
+                }
+                const [existingScopus] = await getPool().query("SELECT id FROM scoring_parameters WHERE parameter_key = 'scopus_journals_count'");
+                if (existingScopus.length === 0) {
+                    const [resScopus] = await getPool().query(
+                        "INSERT INTO scoring_parameters (parameter_key, parameter_name, candidate_field, value_type, max_weightage, is_active, display_order) VALUES ('scopus_journals_count', 'Scopus Journal Publications Count', 'journals.scopus_count', 'number', 3, 0, 28)"
+                    );
+                    const paramId = resScopus.insertId;
+                    await getPool().query("INSERT INTO scoring_ranges (parameter_id, range_type, min_value, max_value, assigned_score, display_order) VALUES (?, 'number', 1, 2, 1, 1), (?, 'number', 3, 5, 2, 2), (?, 'number', 6, 50, 3, 3)", [paramId, paramId, paramId]);
+                }
             } catch (e) { }
             const [rows] = await getPool().query('SELECT p.*, r.id AS range_id, r.range_type, r.min_value, r.max_value, r.category_value, r.assigned_score, r.display_order AS range_order FROM scoring_parameters p LEFT JOIN scoring_ranges r ON r.parameter_id=p.id ORDER BY p.display_order,p.id,r.display_order,r.id');
             const grouped = [];
             rows.forEach(r => {
                 let p = grouped.find(x => x.id === r.id);
                 if (!p) { p = { ...r, ranges: [] }; delete p.range_id; grouped.push(p) }
-                if (['ug.institute', 'pg.institute', 'mphil.institute'].includes(p.candidate_field) || ['ug_institute', 'pg_institute', 'mphil_institute'].includes(p.parameter_key)) {
+                if (['ug.institute', 'pg.institute', 'mphil.institute', 'projects.funded_projects_count', 'projects.funded_consultancy_count'].includes(p.candidate_field) || ['ug_institute', 'pg_institute', 'mphil_institute', 'funded_projects', 'funded_consultancy'].includes(p.parameter_key)) {
                     p.value_type = 'number';
                 }
                 if (r.range_id) {
@@ -2538,7 +2609,10 @@ app.get('/api/admin/applications/:email', async (req, res) => {
             }
 
             const user = users[0];
-            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ? ORDER BY id DESC LIMIT 1', [email]);
+            const [personal] = await getPool().query('SELECT * FROM personal_info WHERE user_email = ? AND applied_date IS NOT NULL ORDER BY id DESC LIMIT 1', [email]);
+            if (personal.length === 0) {
+                return res.status(404).json({ success: false, message: 'Application has not been submitted yet or candidate not found.' });
+            }
             const [education] = await getPool().query('SELECT * FROM user_education WHERE user_email = ? ORDER BY id DESC', [email]);
             const [experience] = await getPool().query('SELECT * FROM user_experience WHERE user_email = ? ORDER BY id DESC', [email]);
             const [certifications] = await getPool().query('SELECT * FROM user_certifications WHERE user_email = ? ORDER BY id DESC', [email]);
@@ -2555,7 +2629,10 @@ app.get('/api/admin/applications/:email', async (req, res) => {
             });
         } else {
             const user = memoryUsers.find(u => u.email === email) || { id: 1, email, department: 'CSE', created_at: new Date().toISOString() };
-            const personal = memoryPersonal.find(p => p.user_email === email) || memoryPersonal[0];
+            const personal = memoryPersonal.find(p => p.user_email === email && p.applied_date);
+            if (!personal) {
+                return res.status(404).json({ success: false, message: 'Application has not been submitted yet or candidate not found.' });
+            }
 
             return res.json({
                 success: true,
@@ -2572,6 +2649,40 @@ app.get('/api/admin/applications/:email', async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to fetch application detail.' });
     }
 });
+
+// Admin Endpoint: Release application lock for a candidate by email (resets applied_date to null)
+app.put('/api/admin/applications/unlock', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || !email.trim()) {
+            return res.status(400).json({ success: false, message: 'Candidate email is required.' });
+        }
+        const targetEmail = email.trim();
+
+        if (isDbConnected() && getPool()) {
+            await getPool().query('UPDATE personal_info SET applied_date = NULL WHERE LOWER(user_email) = LOWER(?) OR LOWER(email) = LOWER(?)', [targetEmail, targetEmail]);
+            try {
+                await getPool().query('UPDATE tbl_personal_info SET dte_Applied_Date = NULL WHERE LOWER(txt_User_Email) = LOWER(?) OR LOWER(txt_Contact_Email) = LOWER(?)', [targetEmail, targetEmail]);
+            } catch (tblErr) {
+                console.warn('tbl_personal_info unlock update note:', tblErr.message);
+            }
+        } else {
+            const p = memoryPersonal.find(per => (per.user_email || '').toLowerCase().trim() === targetEmail.toLowerCase() || (per.email || '').toLowerCase().trim() === targetEmail.toLowerCase());
+            if (p) {
+                p.applied_date = null;
+            }
+        }
+
+        return res.json({
+            success: true,
+            message: `Application lock released successfully for ${targetEmail}. Candidate can now edit details.`
+        });
+    } catch (err) {
+        console.error('Unlock application error:', err);
+        res.status(500).json({ success: false, message: 'Failed to unlock application.' });
+    }
+});
+
 
 /* ===========================================================
    9.5 DYNAMIC DATABASE-DRIVEN CSV EXPORT ENDPOINT
@@ -2623,7 +2734,7 @@ const exportApplicantCsvHandler = async (req, res) => {
                     SELECT p1.*
                     FROM personal_info p1
                     INNER JOIN (
-                        SELECT MAX(id) AS max_id FROM personal_info GROUP BY user_email
+                        SELECT MAX(id) AS max_id FROM personal_info WHERE applied_date IS NOT NULL GROUP BY user_email
                     ) latest ON p1.id = latest.max_id
                 ) p ON u.email = p.user_email AND p.full_name IS NOT NULL AND TRIM(p.full_name) != '' AND p.applied_date IS NOT NULL
                 LEFT JOIN user_phd_details phd ON u.email = phd.user_email
